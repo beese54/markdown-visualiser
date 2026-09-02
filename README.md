@@ -5,6 +5,23 @@ edition: ordered, cross-linked, and set on an archival paper surface built for
 reading rather than for scanning. Export it as a print-quality PDF or as a
 single self-contained HTML file.
 
+It exists for one narrow purpose — helping people read markdown files in a
+neater, more legible way than a raw editor or a utilitarian preview pane
+allows.
+
+> ### Design by Meng To
+>
+> **The entire visual design of this project comes from the work of
+> [Meng To](https://github.com/MengTo) — full credit for how this looks
+> belongs to him.** The archival-paper direction, the serif typographic
+> hierarchy, the index-as-navigation, the layered elevation and the progress
+> rail are all implementations of design direction he published in
+> [MengTo/Skills](https://github.com/MengTo/Skills) (MIT).
+>
+> See [CREDITS.md](CREDITS.md) for exactly which skills shaped which parts,
+> and go look at [his work](https://github.com/MengTo?tab=repositories) and
+> [Design+Code](https://designcode.io) directly.
+
 ```bash
 ./init.sh
 docker compose up --build     # → http://localhost:8080
@@ -127,12 +144,24 @@ tests/        unit tests, fixtures, browser drives
 
 ## Design
 
-The archival-paper direction follows two skills from
-[MengTo/Skills](https://github.com/MengTo/Skills) (MIT), vendored into
-`.claude/skills/mengto/` by `init.sh`: `book-serif-index` and
-`light-mode-paper-technical`. Typography is Fraunces, Newsreader and IBM Plex
-Mono — all SIL OFL, self-hosted, so the app makes **zero third-party requests**
-(which is also what lets the HTML export work offline).
+Every visual decision here traces back to [Meng To](https://github.com/MengTo).
+The archival-paper direction — dark shell around a warm parchment sheet, serif
+as the primary design driver, index-like navigation with active markers, drop
+caps and folio marks, layered elevation, the calm literary motion — comes from
+skills he published in [MengTo/Skills](https://github.com/MengTo/Skills) (MIT),
+vendored into `.claude/skills/mengto/` by `init.sh`. **[CREDITS.md](CREDITS.md)
+sets out which skill shaped which part.**
+
+Typography is Fraunces, Newsreader and IBM Plex Mono — all SIL OFL,
+self-hosted, so the app makes **zero third-party requests** (which is also what
+lets the HTML export work offline).
+
+## Licence
+
+MIT — see [LICENSE](LICENSE). The design credit above is not a licence
+condition but a statement of fact: the look of this application is Meng To's
+work, and [CREDITS.md](CREDITS.md) records it in full. Bundled fonts are SIL
+OFL 1.1.
 
 ## Limits and non-goals
 
