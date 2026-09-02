@@ -15,8 +15,23 @@ IMAGE="${IMAGE:-markdown-visualiser:local}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="$HERE/shots"
 
+# Docker on Windows needs a drive-letter path for -v, but Git Bash reports a
+# POSIX one and rewrites bare backslashes on the way to the exe. `cygpath -m`
+# gives the mixed form - C:/Users/... - which both accept unchanged.
+host_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+
 only="${1:-all}"
 mkdir -p "$OUT"
+
+# Resolved once, so every docker invocation below mounts the same way.
+DRIVE_MOUNT="$(host_path "$HERE")"
+OUT_MOUNT="$(host_path "$OUT")"
 
 echo "==> regenerating fixtures"
 node "$HERE/make-fixtures.mjs"
@@ -31,8 +46,8 @@ drive() {
   docker run --rm \
     --network "container:${CONTAINER}" \
     --ipc=host --init \
-    -v "${HERE}:/drive:ro" \
-    -v "${OUT}:/out" \
+    -v "${DRIVE_MOUNT}:/drive:ro" \
+    -v "${OUT_MOUNT}:/out" \
     --entrypoint sh "${IMAGE}" \
     -c "cp /drive/${script} /app/run.mjs && cd /app && node run.mjs http://127.0.0.1:8080 /drive/fixtures.json ${args}"
 }
@@ -48,7 +63,7 @@ if [ "$only" = "all" ] || [ "$only" = "adversarial" ]; then
   docker run --rm \
     --network "container:${CONTAINER}" \
     --ipc=host --init \
-    -v "${HERE}:/drive:ro" \
+    -v "${DRIVE_MOUNT}:/drive:ro" \
     --entrypoint sh "${IMAGE}" \
     -c "cd /app && node /drive/adversarial.mjs http://127.0.0.1:8080"
 fi
