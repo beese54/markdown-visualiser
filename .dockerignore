@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-server
+.git
+.github
+.claude
+tasks
+tests
+coverage
+*.md
+!README.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+.gitignore

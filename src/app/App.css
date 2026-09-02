@@ -1,0 +1,50 @@
+/* Shell layout. The sheet is inset inside the dark frame with generous
+   margin, so the frame reads as a mount rather than as a border. */
+
+.app-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.app-masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--s-6);
+  color: var(--shell-ink-dim);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+}
+
+.app-mark { color: var(--shell-ink); }
+
+.app-rule {
+  flex: 1;
+  height: var(--hairline);
+  background: linear-gradient(90deg, var(--shell-500), transparent);
+}
+
+.app-stage {
+  display: grid;
+  justify-items: center;
+  padding: var(--s-4) var(--s-5) var(--s-9);
+}
+
+.app-sheet {
+  width: min(100%, calc(var(--measure-wide) + var(--s-10)));
+  padding: clamp(var(--s-6), 6vw, var(--s-9)) clamp(var(--s-5), 5vw, var(--s-8));
+}
+
+.app-folio {
+  margin-block-start: var(--s-8);
+  padding-block-start: var(--s-4);
+  border-block-start: var(--hairline) solid color-mix(in srgb, var(--ink) 14%, transparent);
+  display: flex;
+  justify-content: flex-end;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  letter-spacing: var(--tracking-wide);
+}

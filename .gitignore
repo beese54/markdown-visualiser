@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-server/
+*.local
+.DS_Store
+.env
+.env.*
+coverage/
+.claude/skills/mengto/
+tests/output/

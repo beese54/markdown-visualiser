@@ -1,0 +1,33 @@
+services:
+  app:
+    build:
+      context: .
+      target: runtime
+    image: markdown-visualiser:local
+
+    # Bound to loopback by default. This app has no authentication because it
+    # has nothing to authenticate; exposing it on 0.0.0.0 would publish a
+    # headless browser that renders arbitrary posted HTML.
+    ports:
+      - "127.0.0.1:8080:8080"
+
+    # Chromium runs out of memory and crashes without host IPC. --init reaps
+    # the zombie processes Chromium leaves behind across many renders.
+    ipc: host
+    init: true
+
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    mem_limit: 2g
+    pids_limit: 512
+    restart: unless-stopped

@@ -1,0 +1,134 @@
+/*
+ * Design tokens — archival paper reader.
+ *
+ * Direction follows MengTo's `book-serif-index` and `light-mode-paper-technical`:
+ * a dark outer shell framing a warm, tactile parchment reading surface; serif
+ * typography as the primary design driver; a restrained palette of dark frame,
+ * warm paper, muted ink, and one oxblood accent with antique gold as a second.
+ *
+ * Everything downstream reads from here. No component hardcodes a colour.
+ */
+
+:root {
+  /* ---- Shell: the dark frame the paper sits inside ------------------ */
+  --shell-900: #100d0b;   /* page background, deepest */
+  --shell-800: #17130f;   /* frame */
+  --shell-700: #1f1a15;   /* raised frame elements, sidebar */
+  --shell-600: #2a231c;   /* hairlines on dark */
+  --shell-500: #3a3128;   /* dividers on dark */
+  --shell-ink: #cdbfae;   /* body text on dark */
+  --shell-ink-dim: #8b7d6d;/* labels, folio marks on dark */
+
+  /* ---- Paper: the reading surface ---------------------------------- */
+  /* Warm off-white, never stark. Two stops so the surface can carry a
+     very slight gradient, which is what stops it reading as a flat card. */
+  --paper-hi: #faf6ec;
+  --paper: #f5efe1;
+  --paper-lo: #eee6d4;
+  --paper-edge: #ddd2ba;  /* the crease/edge line where paper meets frame */
+
+  /* ---- Ink: text on paper ------------------------------------------ */
+  --ink: #2a241d;         /* body */
+  --ink-strong: #17120d;  /* headings */
+  --ink-muted: #6d6154;   /* captions, metadata, margin notes */
+  --ink-faint: #9a8d7c;   /* folio numbers, rules */
+
+  /* ---- Accents: used sparingly, for active state and focal points --- */
+  --oxblood: #7d2b2b;
+  --oxblood-lo: #9c4040;
+  --gold: #a8874b;
+  --gold-lo: #c4a469;
+
+  /* ---- Semantic callout hues (GFM alerts) --------------------------- */
+  --note: #2f5d78;
+  --tip: #3d6b47;
+  --important: #6a4677;
+  --warning: #8a6220;
+  --caution: #8a2f2f;
+
+  /* ---- Typography --------------------------------------------------- */
+  --font-display: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-body: 'Newsreader', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+
+  /* Modular scale, ratio 1.22, anchored at 18px body for long-form reading. */
+  --t-xs: 0.694rem;
+  --t-sm: 0.847rem;
+  --t-base: 1.125rem;   /* 18px */
+  --t-md: 1.372rem;
+  --t-lg: 1.674rem;
+  --t-xl: 2.042rem;
+  --t-2xl: 2.491rem;
+  --t-3xl: 3.039rem;
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-body: 1.68;   /* long-form reading, not UI */
+  --leading-loose: 1.85;
+
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.06em;
+  --tracking-label: 0.16em;  /* mono utility labels, always uppercased */
+
+  /* The measure. 68 characters is the readability sweet spot for serif
+     body text and is the single most important number in this file. */
+  --measure: 68ch;
+  --measure-wide: 84ch;   /* tables, code, figures may break the measure */
+
+  /* ---- Space: 4px base ---------------------------------------------- */
+  --s-1: 0.25rem;  --s-2: 0.5rem;   --s-3: 0.75rem;  --s-4: 1rem;
+  --s-5: 1.5rem;   --s-6: 2rem;     --s-7: 3rem;     --s-8: 4rem;
+  --s-9: 6rem;     --s-10: 8rem;
+
+  /* ---- Structure ----------------------------------------------------- */
+  --sidebar-w: 20rem;
+  --radius-sheet: 4px;    /* paper barely rounds — it is paper, not a card */
+  --radius-frame: 14px;
+  --radius-chip: 3px;
+  --hairline: 1px;
+
+  /* ---- Elevation ----------------------------------------------------- */
+  /* Layered rather than single-blur: a tight contact shadow plus a wide
+     ambient one is what makes the sheet read as resting on the frame. */
+  --shadow-sheet:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 8px 24px rgba(0, 0, 0, 0.34),
+    0 32px 68px rgba(0, 0, 0, 0.28);
+  --shadow-raised:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 4px 12px rgba(0, 0, 0, 0.26);
+  --shadow-inset-paper: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+
+  /* ---- Motion: calm and literary. No bounce, no overshoot. ---------- */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.45, 0.05, 0.55, 0.95);
+  --dur-fast: 140ms;
+  --dur-base: 260ms;
+  --dur-slow: 520ms;
+  --dur-reveal: 800ms;
+
+  --z-rail: 10;
+  --z-sidebar: 20;
+  --z-bar: 30;
+  --z-lightbox: 100;
+
+  color-scheme: dark;
+}
+
+/* Motion is decoration. Under reduced-motion it all collapses to instant,
+   including the reveal animations, which are the only large transforms. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-reveal: 0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

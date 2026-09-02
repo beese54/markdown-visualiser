@@ -1,0 +1,23 @@
+/*
+ * Self-hosted OFL fonts. Vendored via @fontsource at build time so the app
+ * makes zero third-party requests - which matters both for privacy and
+ * because the standalone HTML export must work with the network disabled.
+ *
+ * Fraunces       - display serif, optical-size and "wonky" axes, bookish
+ * Newsreader     - body serif, built for long-form periodical reading
+ * IBM Plex Mono  - utility labels and code (OFL; JetBrains Mono is Apache-2.0)
+ */
+
+/* Static weights only. The variable files are 80-200KB each and we use a
+   fixed set of weights, so static roughly halves the font payload. */
+@import '@fontsource/fraunces/400.css';
+@import '@fontsource/fraunces/600.css';
+@import '@fontsource/fraunces/700.css';
+
+@import '@fontsource/newsreader/400.css';
+@import '@fontsource/newsreader/400-italic.css';
+@import '@fontsource/newsreader/600.css';
+@import '@fontsource/newsreader/700.css';
+
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
