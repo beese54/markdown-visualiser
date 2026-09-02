@@ -86,13 +86,14 @@ body {
 /* ---------- Prose ---------------------------------------------------- */
 
 .prose {
-  max-width: var(--measure);
+  max-width: min(var(--measure), 100%);
   margin-inline: auto;
   font-family: var(--font-body);
   font-size: var(--t-base);
   line-height: var(--leading-body);
   color: var(--ink);
   hanging-punctuation: first last;
+  overflow-wrap: break-word;
 }
 
 .prose > * + * { margin-block-start: var(--s-5); }
@@ -193,12 +194,22 @@ body {
 }
 
 /* Code, tables and figures may break the measure - they are reference
-   material, not prose, and cramping them hurts more than a ragged edge. */
+   material, not prose, and cramping them hurts more than a ragged edge.
+   Only once the viewport is actually wide enough to give it back, though:
+   applying the negative margin unconditionally overflows narrow screens. */
 .prose pre,
 .prose figure,
 .prose .table-wrap {
-  max-width: var(--measure-wide);
-  margin-inline: calc((var(--measure) - var(--measure-wide)) / 2);
+  max-width: 100%;
+}
+
+@media (min-width: 64rem) {
+  .prose pre,
+  .prose figure,
+  .prose .table-wrap {
+    max-width: var(--measure-wide);
+    margin-inline: calc((var(--measure) - var(--measure-wide)) / 2);
+  }
 }
 
 .prose code {
@@ -207,6 +218,9 @@ body {
   background: color-mix(in srgb, var(--ink) 6%, transparent);
   padding: 0.12em 0.34em;
   border-radius: var(--radius-chip);
+  /* File paths and identifiers have no spaces to break at, so an inline
+     code span is a common source of overflow on narrow screens. */
+  overflow-wrap: anywhere;
 }
 
 .prose pre {

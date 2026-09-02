@@ -9,7 +9,7 @@
  *
  * Key shape, dot-joined, most significant first:
  *
- *   <dirRank>.<explicitOrder>.<numericPrefix>.<indexRank>.<naturalName>
+ *   <dirRank>.<explicitOrder>.<indexRank>.<numericPrefix>.<naturalName>
  */
 
 /** Filenames that conventionally open a directory. */
@@ -69,9 +69,13 @@ export interface OrderableDoc {
  * Precedence, highest first:
  *   1. Directory grouping (root before nested; nested stay together)
  *   2. Explicit frontmatter `order`
- *   3. Numeric filename prefix
- *   4. Conventional index names (README, index, overview, ...) open a folder
+ *   3. Conventional index names (README, index, overview, ...) open a folder
+ *   4. Numeric filename prefix
  *   5. Natural alphabetical on the filename stem
+ *
+ * Index rank outranks the numeric prefix deliberately: a folder containing
+ * README.md alongside 01-basics.md should open on the README. Ranking the
+ * prefix first buries the folder's own introduction below its chapters.
  */
 export function computeSortKey(doc: OrderableDoc): string {
   const slash = doc.path.lastIndexOf('/')
@@ -85,7 +89,7 @@ export function computeSortKey(doc: OrderableDoc): string {
   const numeric = prefix === null ? pad(Number.MAX_SAFE_INTEGER) : pad(prefix)
   const indexRank = INDEX_NAMES.has(base) ? '0' : '1'
 
-  return [directoryKey(dir), explicit, numeric, indexRank, naturalKey(base)].join('.')
+  return [directoryKey(dir), explicit, indexRank, numeric, naturalKey(base)].join('.')
 }
 
 /** Sort a set of documents into reading order. Does not mutate the input. */

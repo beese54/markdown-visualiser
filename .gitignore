@@ -8,3 +8,4 @@ dist-server/
 coverage/
 .claude/skills/mengto/
 tests/output/
+tests/e2e/fixtures.json

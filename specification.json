@@ -62,8 +62,8 @@
   "ordering": {
     "rules": [
       "1. Explicit numeric `order` in YAML frontmatter (ascending).",
-      "2. Numeric filename prefix: 01-intro.md, 2_setup.md, 003.overview.md.",
-      "3. Conventional index names first within a directory: README, index, introduction, overview, 00.",
+      "2. Conventional index names open their directory: README, index, introduction, overview, 00. Ranked above the numeric prefix so a folder opens on its own introduction rather than on its first numbered chapter.",
+      "3. Numeric filename prefix: 01-intro.md, 2_setup.md, 003.overview.md.",
       "4. Directory depth then directory name, so nested sections stay grouped under their parent.",
       "5. Case-insensitive natural alphabetical on filename as the final tiebreak."
     ],

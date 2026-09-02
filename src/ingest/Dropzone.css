@@ -1,0 +1,151 @@
+/* The empty state. This is the first thing anyone sees, so it carries the
+   full archival-paper direction rather than being a utilitarian upload box. */
+
+.dz {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--s-6) var(--s-5);
+  position: relative;
+}
+
+.dz-plate {
+  width: min(100%, 46rem);
+  padding: clamp(var(--s-6), 5vw, var(--s-8));
+  text-align: center;
+}
+
+.dz-eyebrow {
+  margin: 0 0 var(--s-5);
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--ink-muted);
+}
+
+.dz-title {
+  margin: 0 0 var(--s-4);
+  font-family: var(--font-display);
+  font-size: clamp(var(--t-xl), 5vw, var(--t-3xl));
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink-strong);
+  text-wrap: balance;
+}
+
+.dz-lede {
+  margin: 0 auto;
+  max-width: 42ch;
+  color: var(--ink-muted);
+  text-wrap: pretty;
+}
+
+.dz-actions {
+  margin-block: var(--s-6) var(--s-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-4);
+}
+
+.dz-button {
+  font-family: var(--font-body);
+  font-size: var(--t-base);
+  padding: var(--s-3) var(--s-5);
+  color: var(--paper-hi);
+  background: var(--oxblood);
+  border: 0;
+  border-radius: var(--radius-chip);
+  box-shadow: var(--shadow-raised);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+.dz-button:hover:not(:disabled) { background: var(--oxblood-lo); }
+.dz-button:active:not(:disabled) { transform: translateY(1px); }
+.dz-button:disabled { opacity: 0.6; cursor: default; }
+
+.dz-hint {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-faint);
+}
+
+/* Reserve the line so announcing progress does not shift the layout. */
+.dz-status {
+  margin: 0;
+  min-height: 1.5em;
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  color: var(--ink-muted);
+}
+
+.dz-error {
+  margin: var(--s-4) 0 0;
+  padding: var(--s-4);
+  border-inline-start: 3px solid var(--caution);
+  background: color-mix(in srgb, var(--caution) 8%, transparent);
+  color: var(--ink);
+  text-align: start;
+  text-wrap: pretty;
+}
+
+.dz-supports {
+  margin: var(--s-7) 0 0;
+  padding-block-start: var(--s-5);
+  border-block-start: var(--hairline) solid color-mix(in srgb, var(--ink) 14%, transparent);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s-5);
+  text-align: start;
+}
+
+.dz-supports dt {
+  font-family: var(--font-mono);
+  font-size: var(--t-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--oxblood);
+  margin-block-end: var(--s-2);
+}
+
+.dz-supports dd {
+  margin: 0;
+  font-size: var(--t-sm);
+  line-height: var(--leading-snug);
+  color: var(--ink-muted);
+}
+
+/* ---- Drag veil ------------------------------------------------------- */
+
+.dz-veil {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-lightbox);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0;
+  background: color-mix(in srgb, var(--shell-900) 72%, transparent);
+  backdrop-filter: blur(3px);
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.dz.is-dragging .dz-veil { opacity: 1; }
+
+.dz-veil span {
+  padding: var(--s-4) var(--s-6);
+  border: 1px dashed var(--gold);
+  border-radius: var(--radius-chip);
+  font-family: var(--font-mono);
+  font-size: var(--t-sm);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  color: var(--gold-lo);
+}
