@@ -28,10 +28,51 @@ interface RepairOptions {
   /** Collected notes are pushed here; the caller owns the array. */
   readonly sink: RepairNote[]
   /**
-   * The document title as resolved by ingest. When the first H1 duplicates
-   * it, that H1 is redundant with the page's own title block.
+   * The document title as resolved by ingest, which the reader already shows
+   * in its own title block. A leading H1 repeating it is printed twice.
    */
   readonly title?: string
+}
+
+/** Loose comparison: punctuation and case should not defeat the match. */
+const normaliseTitle = (value: string): string =>
+  value
+    .toLowerCase()
+    // Punctuation collapses to a space, so it must be trimmed *after* the
+    // substitution: "api reference!" would otherwise keep a trailing space.
+    .replace(/[\s\p{P}]+/gu, ' ')
+    .trim()
+
+const sameTitle = (a: string, b: string): boolean =>
+  normaliseTitle(a) === normaliseTitle(b)
+
+/**
+ * Drop a leading H1 that merely repeats the document title.
+ *
+ * The reader sets the title from frontmatter or from this very heading, and
+ * renders it in the document header. Leaving the heading in the prose as well
+ * shows the same words twice, one directly above the other.
+ */
+function dropRedundantTitle(tree: Root, opts: RepairOptions): void {
+  if (opts.title === undefined) return
+
+  // Skip the frontmatter node, which is the document's first child when
+  // present. Only 'yaml' is enabled on remark-frontmatter in this pipeline.
+  const index = tree.children.findIndex((node) => node.type !== 'yaml')
+  const first = index === -1 ? undefined : tree.children[index]
+  if (!first || first.type !== 'heading' || first.depth !== 1) return
+
+  const text = mdastToString(first)
+  if (!sameTitle(text, opts.title)) return
+
+  tree.children.splice(index, 1)
+  opts.sink.push({
+    rule: 'duplicate-h1',
+    line: lineOf(first),
+    before: `h1: ${text}`,
+    after: 'shown once, in the document header',
+    detail: 'This heading repeated the document title, so it was not printed twice.',
+  })
 }
 
 const lineOf = (node: Node): number | null => node.position?.start.line ?? null
@@ -127,6 +168,11 @@ function repairHeadings(tree: Root, opts: RepairOptions): void {
     }
 
     node.depth = Math.min(6, Math.max(1, output)) as Heading['depth']
+    // Any heading that ends up at depth 1 is the document's title, however it
+    // got there. Tracking this only in the `input === 1` branch left a
+    // *promoted* heading unrecorded, so a later genuine h1 was not demoted and
+    // the document rendered with two competing titles.
+    if (node.depth === 1) seenH1 = true
     stack.push({ input, output: node.depth })
   }
 }
@@ -192,33 +238,6 @@ function repairListNesting(tree: Root, opts: RepairOptions): void {
   })
 }
 
-/** Strip trailing whitespace that is not a deliberate hard line break. */
-function repairTrailingWhitespace(tree: Root, opts: RepairOptions): void {
-  let count = 0
-  let firstLine: number | null = null
-
-  visit(tree, 'text', (node) => {
-    // A hard break in mdast is its own node type, so any trailing run of
-    // spaces reaching a text node here is residue, not intent.
-    const trimmed = node.value.replace(/[ \t]+$/gm, '')
-    if (trimmed !== node.value) {
-      count += 1
-      firstLine ??= lineOf(node)
-      node.value = trimmed
-    }
-  })
-
-  if (count > 0) {
-    opts.sink.push({
-      rule: 'trailing-ws',
-      line: firstLine,
-      before: `${count} lines with trailing whitespace`,
-      after: 'trimmed',
-      detail: 'Trailing spaces can produce stray line breaks when rendered.',
-    })
-  }
-}
-
 /**
  * Close emphasis that was opened and never terminated.
  *
@@ -249,10 +268,12 @@ function reportUnbalancedEmphasis(tree: Root, opts: RepairOptions): void {
  * patching markup after the fact.
  */
 export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root) => {
-  // Order matters: whitespace and emphasis are reported against the original
-  // text, headings and lists rewrite structure.
-  repairTrailingWhitespace(tree, opts)
+  // Order matters: emphasis is reported against the original text, while
+  // headings and lists rewrite structure.
   reportUnbalancedEmphasis(tree, opts)
+  // Before repairHeadings, so the hierarchy is normalised against what will
+  // actually be rendered rather than against a heading about to be removed.
+  dropRedundantTitle(tree, opts)
   repairHeadings(tree, opts)
   repairListNesting(tree, opts)
   repairLists(tree, opts)

@@ -22,7 +22,7 @@
       "children": "Heading[]"
     },
     "RepairNote": {
-      "rule": "'heading-skip' | 'duplicate-h1' | 'list-nesting' | 'mixed-markers' | 'unbalanced-emphasis' | 'trailing-ws'",
+      "rule": "'heading-skip' | 'duplicate-h1' | 'list-nesting' | 'mixed-markers' | 'unbalanced-emphasis'",
       "line": "number | null",
       "before": "string",
       "after": "string",
@@ -76,8 +76,7 @@
       "duplicate-h1": "The first H1 becomes the document title; subsequent H1s are demoted to H2 and everything below shifts accordingly.",
       "list-nesting": "Normalise inconsistent indentation to the nearest valid nesting level.",
       "mixed-markers": "Unify bullet markers within a single list to the list's dominant marker.",
-      "unbalanced-emphasis": "Close unterminated emphasis/strong runs at end of block rather than letting them bleed.",
-      "trailing-ws": "Strip trailing whitespace that is not a deliberate hard line break."
+      "unbalanced-emphasis": "Close unterminated emphasis/strong runs at end of block rather than letting them bleed."
     }
   },
   "pipeline": {

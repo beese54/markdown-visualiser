@@ -33,7 +33,6 @@ export type RepairRule =
   | 'list-nesting'
   | 'mixed-markers'
   | 'unbalanced-emphasis'
-  | 'trailing-ws'
 
 /**
  * A single recorded change made by the repair pass.

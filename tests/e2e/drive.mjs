@@ -79,6 +79,11 @@ try {
     // Build a FileSystemEntry tree from flat paths, mirroring what Chromium
     // hands us for a real directory drop.
     const root = { name: 'handbook', dir: true, children: new Map() }
+  // Binary fixtures arrive base64-encoded; text arrives as-is.
+  const bodyOf = (node) =>
+    node.base64 === undefined
+      ? node.content
+      : Uint8Array.from(atob(node.base64), (c) => c.charCodeAt(0))
 
     for (const f of files) {
       const parts = f.path.split('/')
@@ -101,7 +106,7 @@ try {
           name: node.name,
           isFile: true,
           isDirectory: false,
-          file: (ok) => ok(new File([node.content], node.name)),
+          file: (ok) => ok(new File([bodyOf(node)], node.name)),
         }
       }
       const kids = [...node.children.values()]

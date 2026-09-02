@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import type { AssetRef, MarkdownDoc } from '@/types/domain'
 import { renderDocument } from '@/pipeline/render'
@@ -318,5 +320,129 @@ describe('assets and links', () => {
     })
     expect(html).toContain('noopener')
     expect(html).toContain('noreferrer')
+  })
+})
+
+/**
+ * Regressions found by looking at a screenshot rather than by reading code.
+ * Each of these produced correct-looking HTML that read wrongly on the page.
+ */
+describe('layout and whitespace regressions', () => {
+  it('keeps the space before an inline link', async () => {
+    // The trailing-whitespace repair used a $-anchored strip, which removed
+    // the space belonging to the text node before a link and ran the words
+    // together: "See thesetup guide".
+    const { html } = await render('See the [setup guide](https://x.test) now.\n', {
+      resolveLink: (href) => ({ kind: 'external', href }),
+    })
+    expect(html).toContain('See the <a')
+    expect(html).not.toContain('thesetup')
+    expect(html).not.toContain('the<a')
+  })
+
+  it('keeps the space before emphasis and code spans', async () => {
+    const { html } = await render('A **bold** and `code` and *italic* word.\n')
+    expect(html).toContain('A <strong>')
+    expect(html).toContain('and <code>')
+    expect(html).toContain('and <em>')
+  })
+
+  it('drops a leading h1 that repeats the document title', async () => {
+    // The reader prints the title in its own header, so leaving the heading
+    // in the prose showed the same words twice, stacked.
+    const doc: MarkdownDoc = {
+      id: 'd1', path: 'a.md', dir: '', filename: 'a.md',
+      title: 'The Handbook',
+      frontmatter: {},
+      raw: '# The Handbook\n\nBody text.\n',
+      order: null, sortKey: '0', error: null,
+    }
+    const { html, repairs } = await renderDocument(doc, {
+      assets: new Map(),
+      resolveLink: noLinks,
+    })
+    expect(html).not.toContain('<h1')
+    expect(html).toContain('Body text.')
+    expect(repairs.some((r) => r.rule === 'duplicate-h1')).toBe(true)
+  })
+
+  it('keeps a leading h1 that says something different', async () => {
+    const doc: MarkdownDoc = {
+      id: 'd1', path: 'a.md', dir: '', filename: 'a.md',
+      title: 'From Frontmatter',
+      frontmatter: { title: 'From Frontmatter' },
+      raw: '# A Different Heading\n\nBody.\n',
+      order: null, sortKey: '0', error: null,
+    }
+    const { html } = await renderDocument(doc, { assets: new Map(), resolveLink: noLinks })
+    expect(html).toContain('<h1')
+    expect(html).toContain('A Different Heading')
+  })
+
+  it('matches the title loosely, ignoring case and punctuation', async () => {
+    const doc: MarkdownDoc = {
+      id: 'd1', path: 'a.md', dir: '', filename: 'a.md',
+      title: 'API Reference',
+      frontmatter: {},
+      raw: '# api reference!\n\nBody.\n',
+      order: null, sortKey: '0', error: null,
+    }
+    const { html } = await renderDocument(doc, { assets: new Map(), resolveLink: noLinks })
+    expect(html).not.toContain('<h1')
+  })
+
+  it('does not treat a deeper opening heading as the title', async () => {
+    const doc: MarkdownDoc = {
+      id: 'd1', path: 'a.md', dir: '', filename: 'a.md',
+      title: 'Section',
+      frontmatter: {},
+      raw: '## Section\n\nBody.\n',
+      order: null, sortKey: '0', error: null,
+    }
+    const { html } = await renderDocument(doc, { assets: new Map(), resolveLink: noLinks })
+    // Promoted to h1 by the hierarchy repair, but not removed.
+    expect(html).toContain('Section')
+  })
+})
+
+describe('heading promotion interacts with duplicate detection', () => {
+  it('demotes a later h1 when an earlier heading was promoted into h1', async () => {
+    // Found by screenshot: with the title heading removed, the h5 was promoted
+    // to h1 but not recorded as the title, so the real h1 below it stayed an
+    // h1 too and the page showed two competing titles.
+    const { html, repairs } = await render('##### Promoted\n\n# Later Title\n')
+    const depths = [...html.matchAll(/<h([1-6])/g)].map((m) => Number(m[1]))
+    expect(depths).toEqual([1, 2])
+    expect(repairs.some((r) => r.rule === 'duplicate-h1')).toBe(true)
+  })
+
+  it('keeps a single h1 when the title heading is removed as redundant', async () => {
+    const doc: MarkdownDoc = {
+      id: 'd1', path: 'a.md', dir: '', filename: 'a.md',
+      title: 'Broken On Purpose',
+      frontmatter: {},
+      raw: '# Broken On Purpose\n\n##### Jumped\n\n# A Second Title\n',
+      order: null, sortKey: '0', error: null,
+    }
+    const { html } = await renderDocument(doc, { assets: new Map(), resolveLink: noLinks })
+    const depths = [...html.matchAll(/<h([1-6])/g)].map((m) => Number(m[1]))
+    expect(depths.filter((d) => d === 1)).toHaveLength(1)
+  })
+})
+
+describe('rendering prerequisites present in the bundle', () => {
+  it("imports KaTeX's stylesheet, which hides the duplicate MathML", () => {
+    // KaTeX emits both an HTML rendering and a MathML copy of every formula.
+    // Without its stylesheet the MathML is visible too, so each equation is
+    // printed twice: once typeset, once as raw fallback text.
+    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8')
+    expect(main).toContain('katex/dist/katex.min.css')
+  })
+
+  it('maps Shiki CSS variables onto colour', () => {
+    // Shiki runs with defaultColor:false and emits --shiki-* variables rather
+    // than committing to a theme. Nothing is coloured until CSS maps them.
+    const css = readFileSync(resolve(process.cwd(), 'src/styles/paper.css'), 'utf8')
+    expect(css).toMatch(/color:\s*var\(--shiki-light\)/)
   })
 })

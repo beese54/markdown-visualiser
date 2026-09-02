@@ -39,6 +39,8 @@ export default tseslint.config(
         getComputedStyle: 'readonly',
         File: 'readonly',
         Event: 'readonly',
+        atob: 'readonly',
+        Uint8Array: 'readonly',
       },
     },
     rules: {

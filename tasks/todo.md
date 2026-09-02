@@ -119,13 +119,100 @@ children with it. Expected `[1,2,2,3]`.
 
 ### Notes carried forward
 
-- **`clobber: ['name', 'id']` + `clobberPrefix`** means heading ids are emitted as
-  `user-content-*`. L3's scroll-spy and in-app anchor links must account for the
-  prefix or every internal jump silently misses.
+- ~~heading ids get a `user-content-` prefix~~ - **checked, and not true.** The heading
+  plugin runs downstream of `rehype-sanitize`, so clobbering never touches ids it sets.
+  Verified in the browser: `id="hello-world"`, unprefixed.
 - The pipeline is not yet imported by any component, so it is absent from the bundle
   and the mermaid/shiki/katex chunk splits do not appear in build output yet. Both
   land in L3.
 
 ---
 
-## L3 — Reader UI 🔄 NEXT
+## L3 — Reader UI ✅ COMPLETE
+
+- [x] L3.1 Archival paper shell
+- [x] L3.2 Index sidebar with heading tree
+- [x] L3.3 Scroll progress rail + active section
+- [x] L3.4 Document view: drop caps, folio, frontmatter block
+- [x] L3.5 Mermaid rendering, lazy loaded
+- [x] L3.6 Figure captions + lightbox
+- [x] L3.7 Keyboard nav, reduced motion, a11y pass
+
+### Gate results
+
+| Check | Result |
+|---|---|
+| Typecheck | clean |
+| Lint | clean, 0 warnings |
+| Unit tests | **121 passed / 121** |
+| Browser drive | **32 passed / 32** (`tests/e2e/drive-reader.mjs`) |
+| Build | 666 kB / 207 kB gzip eager; shiki, katex, mermaid split out |
+| DoD 3.1 navigation | PASS — all 6 index entries open their document |
+| DoD 3.2 active section | PASS — heading tree tracks scroll |
+| DoD 3.3 keyboard | PASS — arrows move between documents, 16 focusable, visible focus |
+| DoD 3.4 responsive | PASS — no overflow at 360/480/768/1024/1440/2560 |
+| DoD 3.5 accessibility | PASS — zero serious/critical axe violations |
+| DoD 3.6 reduced motion | PASS — all motion tokens collapse to 0ms |
+
+### Seven bugs found, six of them only visible by looking
+
+The unit suite was green through every one of these. Three came from driving real
+Chromium; four came from reading a screenshot.
+
+1. **A React portal into `dangerouslySetInnerHTML` was silently discarded.** Mermaid
+   rendered correctly and then wrote into a node React had already replaced. Root
+   cause: the parent re-renders often (scroll, lightbox, navigation) and each one
+   re-applied `dangerouslySetInnerHTML`, rebuilding the whole subtree. Fixed by
+   memoising `Prose` on the HTML string, and by re-querying the slot after the await
+   rather than holding a node reference across it.
+2. **`loadMermaid()` cached a rejected promise.** The chunk is ~3 MB; navigating away
+   mid-download aborts the fetch, and that failure was then cached permanently — every
+   later document silently showed diagram source instead of a diagram.
+3. **Navigation painted the new title above the previous body.** `useRenderedDoc`
+   updated state only in an effect, so one frame showed a mismatched page. State is now
+   keyed by document id, with the mismatch resolved during render.
+4. **The whitespace repair ate meaningful spaces.** A `$`-anchored strip removed the
+   space belonging to the text node before a link, so "See the [setup guide]" rendered
+   as "See thesetup guide". Probing the parser showed remark already normalises every
+   case that rule targeted — it was **unreachable dead code whose only observable effect
+   was this bug**, so it was removed rather than patched, along with its type member,
+   UI label and spec entry.
+5. **Promoted headings were not recorded as titles.** With the redundant title removed,
+   an h5 promoted to h1 left `seenH1` false, so a later genuine h1 was never demoted and
+   the page rendered two competing titles.
+6. **KaTeX printed every equation twice.** Its stylesheet — never imported — is what
+   hides the MathML copy it emits alongside the HTML rendering.
+7. **Shiki produced no colour.** With `defaultColor: false` it emits `--shiki-*` custom
+   properties, and nothing was mapping them onto `color`.
+
+Also fixed: the progress rail was `float`ed inside a grid container, so it became a grid
+item that took a whole row and pushed the sheet several hundred pixels down the page; the
+document title was printed twice (the header plus the document's own h1); an image that
+resolved but could not be decoded showed the browser's broken-image icon rather than the
+styled placeholder; and `.index-dir` used gold at 75% opacity, compositing to 3.61:1
+against the dark frame — under the 4.5:1 minimum for small text.
+
+Regression tests cover items 4–7 plus the contrast and title-duplication fixes. Items 1–3
+are covered by the browser drive.
+
+### Security audit — L3 diff, per category
+
+- **Injection at input boundaries** — `dangerouslySetInnerHTML` receives only pipeline
+  output that has passed the L2 trust boundary. The two places this layer writes markup
+  itself are Mermaid SVG (parsed via `createContextualFragment` from already-sanitised
+  source, with mermaid in `securityLevel: 'strict'`) and the image-failure placeholder,
+  whose only variable text is set through `textContent`. Audit clean.
+- **Authn/authz on new endpoints** — audit clean. No endpoints added.
+- **Secrets** — audit clean. None present, none logged.
+- **Unvalidated input reaching state changes** — audit clean. Navigation is keyed by
+  `data-doc` ids the pipeline itself minted; an unknown id resolves to no document
+  rather than to arbitrary state.
+- **Resource handling** — audit clean. Object URLs are revoked when a set is replaced or
+  closed; every listener, `IntersectionObserver`, `ResizeObserver` and animation frame is
+  torn down in its cleanup; the scroll handler coalesces to one layout read per frame;
+  and mermaid renders are bounded by a 15s timeout so a hung diagram cannot leave a slot
+  blank indefinitely.
+
+---
+
+## L4 — Export + Integration 🔄 NEXT
