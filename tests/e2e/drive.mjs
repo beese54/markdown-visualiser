@@ -7,6 +7,10 @@
  * expose `webkitGetAsEntry`, which is the exact shape a real folder drop
  * hands the app - so this exercises the production walker, not a stub.
  *
+ * Covers the ingest layer specifically: the walker, reading order, directory
+ * grouping, title resolution and skip reporting, all observed through the
+ * index the reader builds from them.
+ *
  * Usage:  node drive.mjs <baseUrl> <fixtureJsonPath>
  */
 
@@ -136,23 +140,26 @@ try {
     window.dispatchEvent(ev)
   }, fixtures)
 
-  await page.waitForSelector('.app-masthead', { timeout: 15000 })
+  await page.waitForSelector('.reader-bar', { timeout: 15000 })
 
   // ---- Ingest results ---------------------------------------------------
-  const meta = await page.textContent('.app-meta')
-  record('masthead reports the ingested set', /document/.test(meta ?? ''), meta ?? '')
+  const position = await page.textContent('.reader-position')
+  record('the reader reports the set size', /\d+\s*\/\s*6/.test(position ?? ''), position ?? '')
 
-  const rootName = await page.textContent('.app-mark')
+  const rootName = await page.textContent('.reader-mark')
   record('common root folder was stripped and named', rootName === 'handbook', rootName ?? '')
 
-  const contents = await page.$$eval('.prose ol li code', (els) => els.map((e) => e.textContent))
+  // The index is the ingest layer's visible output: order, grouping, titles.
+  const contents = await page.$$eval('.index-doc-title', (els) => els.map((e) => e.textContent))
+  // Reading order: root files first, then each directory grouped together,
+  // with index files opening their own folder.
   const expected = [
-    'readme.md',
-    '99-messy.md',
-    'guide/readme.md',
-    'guide/01-basics.md',
-    'guide/02-advanced.md',
-    'reference/api.md',
+    'The Handbook',
+    'Broken On Purpose',
+    'Guide',
+    'Basics',
+    'Advanced',
+    'API Reference',
   ]
   record(
     'documents appear in the expected reading order',
@@ -160,20 +167,24 @@ try {
     JSON.stringify(contents),
   )
 
-  const titles = await page.$$eval('.prose ol li a', (els) => els.map((e) => e.textContent))
   record(
-    'titles come from frontmatter then headings',
-    titles[0] === 'The Handbook' && titles.includes('API Reference'),
-    JSON.stringify(titles),
+    'titles come from frontmatter, then headings, then filename',
+    contents[0] === 'The Handbook' && contents.includes('API Reference'),
+    JSON.stringify(contents),
   )
 
-  const skipped = await page.$$eval('.prose ul li code', (els) => els.map((e) => e.textContent))
+  const dirs = await page.$$eval('.index-dir', (els) => els.map((e) => e.textContent))
+  record('nested directories are grouped', dirs.includes('guide') && dirs.includes('reference'),
+    JSON.stringify(dirs))
+
+  await page.click('.index-skipped summary')
+  const skipped = await page.$$eval('.index-skipped code', (els) => els.map((e) => e.textContent))
   record('non-markdown file is reported as skipped', skipped.includes('notes.txt'), JSON.stringify(skipped))
 
   // ---- Navigation + responsiveness -------------------------------------
-  await page.click('.prose ol li:nth-child(4) a')
-  const current = await page.getAttribute('.prose ol li:nth-child(4) a', 'aria-current')
-  record('clicking a document marks it current', current === 'true', String(current))
+  await page.click('.index-doc >> nth=3')
+  const current = await page.getAttribute('.index-doc >> nth=3', 'aria-current')
+  record('clicking a document marks it current', current === 'page', String(current))
 
   for (const width of [360, 768, 1440, 2560]) {
     await page.setViewportSize({ width, height: 900 })

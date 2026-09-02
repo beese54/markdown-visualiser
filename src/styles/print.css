@@ -1,0 +1,172 @@
+/*
+ * Print stylesheet.
+ *
+ * Used for two things: the browser's own Ctrl+P, and the standalone export
+ * that the server prints via headless Chromium. Both need the reader chrome
+ * gone and the paper to become the page rather than an object floating on a
+ * dark background.
+ */
+
+@media print {
+  /* The dark frame is a screen affordance. On paper it would be a solid
+     black border around every page. */
+  html,
+  body,
+  .shell,
+  .reader,
+  .reader-body,
+  .reader-stage,
+  .export-root {
+    background: #fff !important;
+    color: #000;
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* Reader chrome, navigation and anything interactive. */
+  .reader-bar,
+  .reader-index,
+  .reader-scrim,
+  .rail,
+  .skip-link,
+  .export-bar,
+  .lightbox,
+  .repairs-toggle {
+    display: none !important;
+  }
+
+  .sheet,
+  .reader-sheet,
+  .export-sheet {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  .sheet::before,
+  .sheet::after {
+    display: none !important;
+  }
+
+  .prose {
+    max-width: none !important;
+    margin: 0 !important;
+    /* Print measure is set by the page margins, not by a ch value. */
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #000;
+  }
+
+  /* Headings must not be left stranded at the foot of a page. */
+  .prose h1,
+  .prose h2,
+  .prose h3,
+  .prose h4,
+  .prose h5,
+  .prose h6,
+  .doc-title {
+    break-after: avoid;
+    break-inside: avoid;
+    color: #000;
+  }
+
+  .prose h2::after { display: none; }
+
+  /* Nor should these be split across a page break. */
+  .prose pre,
+  .prose table,
+  .prose figure,
+  .prose blockquote,
+  .prose .markdown-alert,
+  .mermaid-slot {
+    break-inside: avoid;
+  }
+
+  .prose p,
+  .prose li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Each document starts a new sheet of paper - except the first, which
+     would otherwise open the file with a blank page.
+
+     `:first-of-type` is wrong here: in the reader each .doc is the only
+     child of its own container, so it matched every document and cancelled
+     every break. `:first-child` of the export root is the real "first
+     document in the file", and the sibling combinator states the rule
+     positively: a break goes *between* documents. */
+  .export-root > .doc + .doc {
+    break-before: page;
+  }
+  /* The reader prints one document at a time, so it needs no break at all. */
+
+  /* A link's destination is invisible on paper, so print it. Skipped for
+     in-app navigation, where the href is a meaningless document id. */
+  .prose a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-family: var(--font-mono);
+    font-size: 0.75em;
+    word-break: break-all;
+    color: #555;
+  }
+
+  .prose a {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  .prose pre,
+  .prose code {
+    background: #f6f6f6 !important;
+    border-color: #ddd !important;
+    font-size: 8.5pt;
+  }
+  /* Syntax colours survive; Chromium honours print-color-adjust. */
+  .prose .shiki,
+  .prose .shiki span {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .prose img,
+  .mermaid-slot svg {
+    max-width: 100% !important;
+    break-inside: avoid;
+  }
+
+  /* The screen folio is replaced by real running heads and page numbers,
+     which only @page can provide. */
+  .doc-folio { display: none !important; }
+
+  /* The repair notice is a screen tool, but its summary is worth keeping so
+     a printed copy admits it was adjusted. */
+  .repairs {
+    border: 1px solid #ccc !important;
+    background: none !important;
+  }
+  .repairs-panel { display: none !important; }
+  .repairs::after {
+    content: 'Formatting was adjusted for this rendering; the source file was unchanged.';
+    display: block;
+    padding: 6pt 8pt;
+    font-family: var(--font-mono);
+    font-size: 7.5pt;
+    color: #555;
+  }
+}
+
+/*
+ * Page geometry.
+ *
+ * Margins are asymmetric on the inside edge to leave room for binding, and
+ * the running head carries the document title with the page number.
+ */
+@page {
+  size: A4;
+  margin: 20mm 18mm 22mm 22mm;
+}

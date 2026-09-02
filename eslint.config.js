@@ -41,6 +41,7 @@ export default tseslint.config(
         Event: 'readonly',
         atob: 'readonly',
         Uint8Array: 'readonly',
+        Buffer: 'readonly',
       },
     },
     rules: {

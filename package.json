@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch server/index.ts",
@@ -13,7 +15,9 @@
     "start": "node dist-server/index.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint . --max-warnings 0",
-    "test": "vitest"
+    "test": "vitest",
+    "test:e2e": "bash tests/e2e/run.sh",
+    "test:security": "bash tests/e2e/run.sh adversarial"
   },
   "//dependencies": "Runtime-only. The Docker runtime stage installs exactly these with --omit=dev; everything the browser needs is bundled into dist/ by Vite and therefore lives in devDependencies.",
   "dependencies": {

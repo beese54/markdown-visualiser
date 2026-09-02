@@ -10,6 +10,9 @@ import 'katex/dist/katex.min.css'
 import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/paper.css'
+// Part of the bundle so the standalone export inlines it: the PDF is printed
+// from that file, and its page rules have to travel with it.
+import './styles/print.css'
 
 import { App } from './app/App'
 

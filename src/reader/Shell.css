@@ -583,3 +583,48 @@
   border-radius: var(--radius-chip);
   padding: var(--s-4);
 }
+
+/* ---------- Export controls -------------------------------------------- */
+
+.export-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.export-bar button {
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--shell-ink-dim);
+  background: none;
+  border: var(--hairline) solid var(--shell-500);
+  border-radius: var(--radius-chip);
+  padding: var(--s-2) var(--s-3);
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.export-bar button:hover:not(:disabled) {
+  color: var(--gold-lo);
+  border-color: var(--gold);
+}
+.export-bar button:disabled { opacity: 0.4; cursor: progress; }
+
+.export-status { color: var(--gold-lo); white-space: nowrap; }
+
+/* The bar is a single row of chrome; a long error would break it, so the
+   message is truncated here and repeated in full by the alert role. */
+.export-error {
+  color: var(--caution);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 48rem) {
+  .export-status, .export-error { display: none; }
+}

@@ -215,4 +215,96 @@ are covered by the browser drive.
 
 ---
 
-## L4 — Export + Integration 🔄 NEXT
+## L4 — Export + Integration ✅ COMPLETE
+
+- [x] L4.1 Print stylesheet
+- [x] L4.2 Standalone HTML serialiser, diagrams settled before serialising
+- [x] L4.3 Hardened Playwright print service
+- [x] L4.4 Export UI + client PDF call
+- [x] L4.5 Adversarial test script
+- [x] L4.6 End-to-end verification
+
+### Gate results
+
+| Check | Result |
+|---|---|
+| Typecheck | clean |
+| Lint | clean, 0 warnings |
+| Unit tests | **121 / 121** |
+| Ingest drive | **16 / 16** |
+| Reader drive | **32 / 32** |
+| Export drive | **24 / 24** |
+| Adversarial probe | **11 / 11** |
+
+### Adversarial results (DoD 4.4–4.7)
+
+Every hostile payload was posted to the live endpoint in the running container.
+
+| Attack | Result |
+|---|---|
+| `file:///etc/passwd` via iframe, img and object | blocked — no `root:x:` in output |
+| Cloud metadata `169.254.169.254`, internal IPs, `localhost` | blocked — no internal response content |
+| CSS-only SSRF (`@import`, `url()`, `<link>`) | blocked — these need no JavaScript, so the route interception is what stops them |
+| `<script>`, `onerror=`, `<svg><script>` | did not execute — page still reads `JS_DID_NOT_RUN` |
+| 26 MB body | 413, service still healthy |
+| 24 concurrent heavy renders | 21×200, 3×429, 0 failures, healthy afterwards |
+| Malformed bodies (missing, empty, wrong type, blank) | 400 on each |
+| Error text | no paths, stack frames or "Playwright"/"chromium" disclosed |
+
+### Four bugs found by verification
+
+1. **Exported images were `data:text/plain`.** A `File` from a directory drop
+   usually has an empty `type`, so the object URL was untyped and `readAsDataURL`
+   produced a text MIME no browser will render. The blob is now retyped from its
+   extension. The offline check had *passed* while this was broken — blob URLs stay
+   valid within one browser session, which made a self-contained file look fine
+   when it was not.
+2. **Diagrams were missing from the export.** The exporter only copied SVG out of
+   the live DOM, so any document the reader had never opened exported as a
+   placeholder — and the print context has JavaScript disabled, so it would never
+   become a diagram. `drawDiagramsIn` was lifted out of the React hook and is now
+   also run over the export host, attached off-screen because mermaid measures text.
+3. **`break-before: page` never applied.** `.doc:first-of-type` matched *every*
+   document, since in the reader each is the only child of its own container, so it
+   cancelled every break. Replaced with `.export-root > .doc + .doc`, which states
+   the rule positively: a break goes between documents. The 6-page count had been
+   coincidental.
+4. **The PDF text assertion could not have worked.** The PDF embeds subset fonts
+   with Identity-H encoding, so its glyphs are not ASCII and no string search would
+   ever match. Replaced with a real check: open the same standalone file under
+   `print` media in a JavaScript-disabled context and assert the visible titles,
+   hidden chrome, white background and pagination.
+
+Also retargeted `tests/e2e/drive.mjs`, which still asserted against the L1
+placeholder UI that L3 replaced.
+
+### Security audit — L4 diff, per category
+
+- **Injection at input boundaries** — the print endpoint accepts arbitrary HTML by
+  design; it is contained rather than trusted. `javaScriptEnabled: false` removes
+  script execution entirely, and a context-level default-deny route allows only
+  `data:`, `blob:` and `about:`. The `title` reaching the header template is
+  HTML-escaped, and the `Content-Disposition` filename is stripped to ASCII word
+  characters. **Verified by probe, not by inspection.**
+- **Authn/authz** — the endpoint is deliberately unauthenticated because it holds no
+  data and grants no capability beyond printing what the caller already supplied.
+  Compose binds `127.0.0.1`, so it is not reachable off-host by default.
+- **Secrets** — audit clean. None present, none logged; error responses are generic
+  and the detail goes to the server log only.
+- **Unvalidated input reaching state changes** — audit clean. The service is
+  stateless: nothing is written to disk, no state persists between requests, and a
+  fresh `BrowserContext` per request is closed in a `finally`.
+- **Resource handling** — `bodyLimit` 20 MB (413 verified), `p-limit` at CPU count
+  with a queue cap returning 429 (verified under 24-way load), a 30s hard deadline
+  around the whole render, a 20s `setContent` timeout and a 20s context default that
+  bounds `page.pdf()` (which takes no timeout of its own). One long-lived `Browser`
+  is reused and reset on `disconnected`; contexts are never reused across documents.
+
+### Notes carried forward
+
+- **Image size is 3.63 GB.** The official Playwright image ships Chromium, Firefox
+  and WebKit; only Chromium is used. A `node:24-slim` base with
+  `playwright install --with-deps chromium` should land near ~1.2 GB. Deferred
+  throughout so the browser was proven working first; still worth doing.
+- **`read_only: true` holds** with a browser actually launching, given the
+  `/tmp` tmpfs. Confirmed by the adversarial and export runs.

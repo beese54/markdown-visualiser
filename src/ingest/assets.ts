@@ -80,11 +80,18 @@ export function buildAssetMap(
     const key = normaliseAssetPath(path)
     if (map.has(key)) continue // first wins; a duplicate key is a collision, not an update
 
+    // The blob is retyped from the file extension rather than trusting
+    // `file.type`. A File produced by a directory drop often carries an empty
+    // type, and an untyped blob becomes `data:text/plain` when the exporter
+    // reads it back - which no browser will render as an image.
+    const mime = mimeFor(path, file.type)
+    const typed = file.type === mime ? file : new Blob([file], { type: mime })
+
     map.set(key, {
       path: key,
       originalPath: path,
-      url: URL.createObjectURL(file),
-      mime: mimeFor(path, file.type),
+      url: URL.createObjectURL(typed),
+      mime,
       bytes: file.size,
     })
   }

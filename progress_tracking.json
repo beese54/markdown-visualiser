@@ -358,7 +358,7 @@
     {
       "id": "L4",
       "name": "Export + Integration",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
         {
           "id": "L4.1",
@@ -370,7 +370,7 @@
             "L3.7"
           ],
           "done_when": "DoD 4.2",
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "L4.2",
@@ -383,7 +383,7 @@
             "L4.1"
           ],
           "done_when": "DoD 4.1, 4.3",
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "L4.3",
@@ -395,7 +395,7 @@
             "L0.6"
           ],
           "done_when": "DoD 4.4, 4.5, 4.6, 4.7",
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "L4.4",
@@ -409,7 +409,7 @@
             "L4.3"
           ],
           "done_when": "Both exports work from the UI",
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "L4.5",
@@ -421,7 +421,7 @@
             "L4.3"
           ],
           "done_when": "All hostile payloads blocked or rejected",
-          "status": "pending"
+          "status": "done"
         },
         {
           "id": "L4.6",
@@ -434,7 +434,7 @@
             "L4.5"
           ],
           "done_when": "Every DoD criterion run and recorded with actual output",
-          "status": "pending"
+          "status": "done"
         }
       ]
     }

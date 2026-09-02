@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useReader } from '@/state/store'
 import { useRenderedDoc } from '@/state/render'
 import { DocumentView } from './DocumentView'
+import { ExportBar } from './ExportBar'
 import { IndexSidebar } from './IndexSidebar'
 import { Lightbox } from './Lightbox'
 import { ProgressRail } from './ProgressRail'
@@ -153,6 +154,8 @@ export function Shell() {
             →
           </button>
         </div>
+
+        <ExportBar set={set} />
 
         <button type="button" className="reader-close" onClick={reset}>
           Close
