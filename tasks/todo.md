@@ -61,3 +61,71 @@
 
 - Slim the runtime image to Chromium-only (see note above).
 - Virtualised rendering for very large document sets (only if a real set proves slow).
+
+---
+
+## L2 — Pipeline ✅ COMPLETE
+
+- [x] L2.1 Sanitize schema at the trust boundary
+- [x] L2.2 Markdown repair remark plugin
+- [x] L2.3 Shiki hast visitor, JS regex engine
+- [x] L2.4 Mermaid placeholder extraction
+- [x] L2.5 Asset path resolution
+- [x] L2.6 Assembled pipeline + headings + reading time
+
+### Gate results
+
+| Check | Result |
+|---|---|
+| Typecheck | clean |
+| Lint | clean, 0 warnings |
+| Tests | **111 passed / 111** (45 new pipeline tests) |
+| Build | ok — 303.65 kB JS / 96.14 kB gzip |
+
+### Two real bugs found and fixed by the tests
+
+**1. `data:text/html` image source survived sanitization — a genuine XSS vector.**
+The `src` protocol allowlist checks only the *scheme*, so `data:` passed and
+`data:text/html;base64,<script>…` rendered intact. The deeper cause was subtler:
+`hast-util-sanitize` permits an attribute if *any* of its definitions match, and the
+upstream default schema contributes a bare `'src'` that matches every value. Adding
+`['src', /regex/]` alongside it constrained nothing. Fixed with `inheritedExcept()`,
+which drops the permissive entry before re-declaring `src` as a value allowlist of
+raster image types only — SVG excluded, since it can carry script. `rehype-assets`
+was hardened the same way so a plugin running past the trust boundary cannot
+reintroduce what the sanitizer rejected.
+
+**2. Demoting a heading orphaned its subtree.**
+`# A / ## A1 / # B / ## B1` produced depths `[1,2,2,2]`: B was correctly demoted to
+h2, but B1 stayed at h2 and so became B's *sibling* rather than its child — the index
+showed a structure the document did not have. The depth is now derived from the
+parent's *output* depth rather than its input depth, so a moved section carries its
+children with it. Expected `[1,2,2,3]`.
+
+### Security audit — L2 diff, per category
+
+- **Injection at input boundaries** — the markdown pipeline *is* the input boundary.
+  `rehype-sanitize` sits immediately after `rehype-raw`, and 13 hostile-payload tests
+  cover script/iframe/object/embed/form/style/meta/base tags, `onerror`/`onload`/
+  `onmouseover` handlers, `javascript:`/`vbscript:` hrefs, non-image data URIs, and
+  handlers nested inside otherwise-valid table markup. Two findings above, both fixed.
+- **Authn/authz** — audit clean. No endpoints added.
+- **Secrets** — audit clean. None present, none logged.
+- **Unvalidated input reaching state changes** — audit clean. The pipeline is pure:
+  markdown in, HTML string out, no persistence or side effects.
+- **Resource handling** — audit clean. Shiki uses the JS regex engine (no WASM
+  fetch); grammars load on demand and a missing one degrades to plain text rather
+  than throwing; Mermaid is extracted as placeholders, never rendered here.
+
+### Notes carried forward
+
+- **`clobber: ['name', 'id']` + `clobberPrefix`** means heading ids are emitted as
+  `user-content-*`. L3's scroll-spy and in-app anchor links must account for the
+  prefix or every internal jump silently misses.
+- The pipeline is not yet imported by any component, so it is absent from the bundle
+  and the mermaid/shiki/katex chunk splits do not appear in build output yet. Both
+  land in L3.
+
+---
+
+## L3 — Reader UI 🔄 NEXT

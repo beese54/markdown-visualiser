@@ -5,54 +5,354 @@
     {
       "id": "L0",
       "name": "Foundation",
-      "status": "in_progress",
+      "status": "done",
       "tasks": [
-        { "id": "L0.1", "title": "Blueprint artifacts", "files": ["specification.json", "definition_of_done.md", "progress_tracking.json", "init.sh"], "depends_on": [], "done_when": "All four exist and describe the agreed design", "status": "done" },
-        { "id": "L0.2", "title": "Package + build config", "files": ["package.json", "tsconfig.json", "vite.config.ts", "eslint.config.js", ".gitignore", ".dockerignore"], "depends_on": ["L0.1"], "done_when": "DoD 0.1, 0.2, 0.3", "status": "pending" },
-        { "id": "L0.3", "title": "Domain types", "files": ["src/types/domain.ts"], "depends_on": ["L0.2"], "done_when": "Types match specification.json schemas and compile", "status": "pending" },
-        { "id": "L0.4", "title": "Design tokens + paper surface CSS", "files": ["src/styles/tokens.css", "src/styles/paper.css", "src/styles/fonts.css"], "depends_on": ["L0.2"], "done_when": "DoD 0.7; tokens smoke test passes", "status": "pending" },
-        { "id": "L0.5", "title": "App shell placeholder", "files": ["index.html", "src/main.tsx", "src/app/App.tsx"], "depends_on": ["L0.3", "L0.4"], "done_when": "Dev server renders the themed empty shell", "status": "pending" },
-        { "id": "L0.6", "title": "Fastify server + Dockerfile + compose", "files": ["server/index.ts", "Dockerfile", "docker-compose.yml"], "depends_on": ["L0.5"], "done_when": "DoD 0.5, 0.6, 4.8", "status": "pending" }
+        {
+          "id": "L0.1",
+          "title": "Blueprint artifacts",
+          "files": [
+            "specification.json",
+            "definition_of_done.md",
+            "progress_tracking.json",
+            "init.sh"
+          ],
+          "depends_on": [],
+          "done_when": "All four exist and describe the agreed design",
+          "status": "done"
+        },
+        {
+          "id": "L0.2",
+          "title": "Package + build config",
+          "files": [
+            "package.json",
+            "tsconfig.json",
+            "vite.config.ts",
+            "eslint.config.js",
+            ".gitignore",
+            ".dockerignore"
+          ],
+          "depends_on": [
+            "L0.1"
+          ],
+          "done_when": "DoD 0.1, 0.2, 0.3",
+          "status": "done"
+        },
+        {
+          "id": "L0.3",
+          "title": "Domain types",
+          "files": [
+            "src/types/domain.ts"
+          ],
+          "depends_on": [
+            "L0.2"
+          ],
+          "done_when": "Types match specification.json schemas and compile",
+          "status": "done"
+        },
+        {
+          "id": "L0.4",
+          "title": "Design tokens + paper surface CSS",
+          "files": [
+            "src/styles/tokens.css",
+            "src/styles/paper.css",
+            "src/styles/fonts.css"
+          ],
+          "depends_on": [
+            "L0.2"
+          ],
+          "done_when": "DoD 0.7; tokens smoke test passes",
+          "status": "done"
+        },
+        {
+          "id": "L0.5",
+          "title": "App shell placeholder",
+          "files": [
+            "index.html",
+            "src/main.tsx",
+            "src/app/App.tsx"
+          ],
+          "depends_on": [
+            "L0.3",
+            "L0.4"
+          ],
+          "done_when": "Dev server renders the themed empty shell",
+          "status": "done"
+        },
+        {
+          "id": "L0.6",
+          "title": "Fastify server + Dockerfile + compose",
+          "files": [
+            "server/index.ts",
+            "Dockerfile",
+            "docker-compose.yml"
+          ],
+          "depends_on": [
+            "L0.5"
+          ],
+          "done_when": "DoD 0.5, 0.6, 4.8",
+          "status": "done"
+        }
       ]
     },
     {
       "id": "L1",
       "name": "Ingest",
-      "status": "pending",
+      "status": "done",
       "tasks": [
-        { "id": "L1.1", "title": "Recursive directory walker with looped readEntries", "files": ["src/ingest/walker.ts"], "depends_on": ["L0.6"], "done_when": "DoD 1.2", "status": "pending" },
-        { "id": "L1.2", "title": "Ordering key computation", "files": ["src/ingest/ordering.ts"], "depends_on": ["L0.3"], "done_when": "DoD 1.1", "status": "pending" },
-        { "id": "L1.3", "title": "Asset map with blob URLs", "files": ["src/ingest/assets.ts"], "depends_on": ["L1.1"], "done_when": "DoD 1.4", "status": "pending" },
-        { "id": "L1.4", "title": "DocumentSet builder + limits + resilience", "files": ["src/ingest/docset.ts"], "depends_on": ["L1.1", "L1.2", "L1.3"], "done_when": "DoD 1.5, 1.6", "status": "pending" },
-        { "id": "L1.5", "title": "Inter-document link resolution", "files": ["src/ingest/links.ts"], "depends_on": ["L1.4"], "done_when": "DoD 1.3", "status": "pending" },
-        { "id": "L1.6", "title": "Dropzone component", "files": ["src/ingest/Dropzone.tsx", "src/state/store.ts"], "depends_on": ["L1.4"], "done_when": "Dropping a folder populates the store", "status": "pending" }
+        {
+          "id": "L1.1",
+          "title": "Recursive directory walker with looped readEntries",
+          "files": [
+            "src/ingest/walker.ts"
+          ],
+          "depends_on": [
+            "L0.6"
+          ],
+          "done_when": "DoD 1.2",
+          "status": "done"
+        },
+        {
+          "id": "L1.2",
+          "title": "Ordering key computation",
+          "files": [
+            "src/ingest/ordering.ts"
+          ],
+          "depends_on": [
+            "L0.3"
+          ],
+          "done_when": "DoD 1.1",
+          "status": "done"
+        },
+        {
+          "id": "L1.3",
+          "title": "Asset map with blob URLs",
+          "files": [
+            "src/ingest/assets.ts"
+          ],
+          "depends_on": [
+            "L1.1"
+          ],
+          "done_when": "DoD 1.4",
+          "status": "done"
+        },
+        {
+          "id": "L1.4",
+          "title": "DocumentSet builder + limits + resilience",
+          "files": [
+            "src/ingest/docset.ts"
+          ],
+          "depends_on": [
+            "L1.1",
+            "L1.2",
+            "L1.3"
+          ],
+          "done_when": "DoD 1.5, 1.6",
+          "status": "done"
+        },
+        {
+          "id": "L1.5",
+          "title": "Inter-document link resolution",
+          "files": [
+            "src/ingest/links.ts"
+          ],
+          "depends_on": [
+            "L1.4"
+          ],
+          "done_when": "DoD 1.3",
+          "status": "done"
+        },
+        {
+          "id": "L1.6",
+          "title": "Dropzone component",
+          "files": [
+            "src/ingest/Dropzone.tsx",
+            "src/state/store.ts"
+          ],
+          "depends_on": [
+            "L1.4"
+          ],
+          "done_when": "Dropping a folder populates the store",
+          "status": "done"
+        }
       ]
     },
     {
       "id": "L2",
       "name": "Pipeline",
-      "status": "pending",
+      "status": "done",
       "tasks": [
-        { "id": "L2.1", "title": "Sanitize schema at the trust boundary", "files": ["src/pipeline/sanitize.ts"], "depends_on": ["L1.4"], "done_when": "DoD 2.5, 2.6", "status": "pending" },
-        { "id": "L2.2", "title": "Markdown repair remark plugin", "files": ["src/pipeline/plugins/remark-repair.ts"], "depends_on": ["L0.3"], "done_when": "DoD 2.7, 2.8", "status": "pending" },
-        { "id": "L2.3", "title": "Shiki hast visitor, JS regex engine", "files": ["src/pipeline/plugins/rehype-shiki.ts"], "depends_on": ["L2.1"], "done_when": "DoD 2.4", "status": "pending" },
-        { "id": "L2.4", "title": "Mermaid placeholder extraction", "files": ["src/pipeline/plugins/rehype-mermaid.ts"], "depends_on": ["L2.1"], "done_when": "Fences become placeholders carrying their source", "status": "pending" },
-        { "id": "L2.5", "title": "Asset path resolution in rendered HTML", "files": ["src/pipeline/plugins/rehype-assets.ts"], "depends_on": ["L1.3", "L2.1"], "done_when": "Relative image srcs map to blob URLs; misses render placeholders", "status": "pending" },
-        { "id": "L2.6", "title": "Assembled pipeline + headings + reading time", "files": ["src/pipeline/render.ts"], "depends_on": ["L2.1", "L2.2", "L2.3", "L2.4", "L2.5"], "done_when": "DoD 2.1, 2.2, 2.3", "status": "pending" }
+        {
+          "id": "L2.1",
+          "title": "Sanitize schema at the trust boundary",
+          "files": [
+            "src/pipeline/sanitize.ts"
+          ],
+          "depends_on": [
+            "L1.4"
+          ],
+          "done_when": "DoD 2.5, 2.6",
+          "status": "done"
+        },
+        {
+          "id": "L2.2",
+          "title": "Markdown repair remark plugin",
+          "files": [
+            "src/pipeline/plugins/remark-repair.ts"
+          ],
+          "depends_on": [
+            "L0.3"
+          ],
+          "done_when": "DoD 2.7, 2.8",
+          "status": "done"
+        },
+        {
+          "id": "L2.3",
+          "title": "Shiki hast visitor, JS regex engine",
+          "files": [
+            "src/pipeline/plugins/rehype-shiki.ts"
+          ],
+          "depends_on": [
+            "L2.1"
+          ],
+          "done_when": "DoD 2.4",
+          "status": "done"
+        },
+        {
+          "id": "L2.4",
+          "title": "Mermaid placeholder extraction",
+          "files": [
+            "src/pipeline/plugins/rehype-mermaid.ts"
+          ],
+          "depends_on": [
+            "L2.1"
+          ],
+          "done_when": "Fences become placeholders carrying their source",
+          "status": "done"
+        },
+        {
+          "id": "L2.5",
+          "title": "Asset path resolution in rendered HTML",
+          "files": [
+            "src/pipeline/plugins/rehype-assets.ts"
+          ],
+          "depends_on": [
+            "L1.3",
+            "L2.1"
+          ],
+          "done_when": "Relative image srcs map to blob URLs; misses render placeholders",
+          "status": "done"
+        },
+        {
+          "id": "L2.6",
+          "title": "Assembled pipeline + headings + reading time",
+          "files": [
+            "src/pipeline/render.ts"
+          ],
+          "depends_on": [
+            "L2.1",
+            "L2.2",
+            "L2.3",
+            "L2.4",
+            "L2.5"
+          ],
+          "done_when": "DoD 2.1, 2.2, 2.3",
+          "status": "done"
+        }
       ]
     },
     {
       "id": "L3",
       "name": "Reader UI",
-      "status": "pending",
+      "status": "in_progress",
       "tasks": [
-        { "id": "L3.1", "title": "Archival paper shell", "files": ["src/reader/Shell.tsx"], "depends_on": ["L2.6"], "done_when": "DoD 3.4", "status": "pending" },
-        { "id": "L3.2", "title": "Index sidebar with heading tree", "files": ["src/reader/IndexSidebar.tsx"], "depends_on": ["L3.1"], "done_when": "DoD 3.1", "status": "pending" },
-        { "id": "L3.3", "title": "Scroll progress rail + active section", "files": ["src/reader/ProgressRail.tsx"], "depends_on": ["L3.2"], "done_when": "DoD 3.2", "status": "pending" },
-        { "id": "L3.4", "title": "Document view: drop caps, folio, margin notes", "files": ["src/reader/DocumentView.tsx", "src/reader/Folio.tsx"], "depends_on": ["L3.1"], "done_when": "Typography matches the book-serif-index direction", "status": "pending" },
-        { "id": "L3.5", "title": "Mermaid React component, lazy loaded", "files": ["src/reader/Mermaid.tsx"], "depends_on": ["L2.4"], "done_when": "Diagrams render once, no flicker or duplicate ids", "status": "pending" },
-        { "id": "L3.6", "title": "Figure captions + lightbox", "files": ["src/reader/Lightbox.tsx"], "depends_on": ["L3.4"], "done_when": "Images open, Escape closes, focus is trapped and restored", "status": "pending" },
-        { "id": "L3.7", "title": "Keyboard nav, reduced motion, a11y pass", "files": ["src/reader/*"], "depends_on": ["L3.2", "L3.3", "L3.4", "L3.6"], "done_when": "DoD 3.3, 3.5, 3.6", "status": "pending" }
+        {
+          "id": "L3.1",
+          "title": "Archival paper shell",
+          "files": [
+            "src/reader/Shell.tsx"
+          ],
+          "depends_on": [
+            "L2.6"
+          ],
+          "done_when": "DoD 3.4",
+          "status": "pending"
+        },
+        {
+          "id": "L3.2",
+          "title": "Index sidebar with heading tree",
+          "files": [
+            "src/reader/IndexSidebar.tsx"
+          ],
+          "depends_on": [
+            "L3.1"
+          ],
+          "done_when": "DoD 3.1",
+          "status": "pending"
+        },
+        {
+          "id": "L3.3",
+          "title": "Scroll progress rail + active section",
+          "files": [
+            "src/reader/ProgressRail.tsx"
+          ],
+          "depends_on": [
+            "L3.2"
+          ],
+          "done_when": "DoD 3.2",
+          "status": "pending"
+        },
+        {
+          "id": "L3.4",
+          "title": "Document view: drop caps, folio, margin notes",
+          "files": [
+            "src/reader/DocumentView.tsx",
+            "src/reader/Folio.tsx"
+          ],
+          "depends_on": [
+            "L3.1"
+          ],
+          "done_when": "Typography matches the book-serif-index direction",
+          "status": "pending"
+        },
+        {
+          "id": "L3.5",
+          "title": "Mermaid React component, lazy loaded",
+          "files": [
+            "src/reader/Mermaid.tsx"
+          ],
+          "depends_on": [
+            "L2.4"
+          ],
+          "done_when": "Diagrams render once, no flicker or duplicate ids",
+          "status": "pending"
+        },
+        {
+          "id": "L3.6",
+          "title": "Figure captions + lightbox",
+          "files": [
+            "src/reader/Lightbox.tsx"
+          ],
+          "depends_on": [
+            "L3.4"
+          ],
+          "done_when": "Images open, Escape closes, focus is trapped and restored",
+          "status": "pending"
+        },
+        {
+          "id": "L3.7",
+          "title": "Keyboard nav, reduced motion, a11y pass",
+          "files": [
+            "src/reader/*"
+          ],
+          "depends_on": [
+            "L3.2",
+            "L3.3",
+            "L3.4",
+            "L3.6"
+          ],
+          "done_when": "DoD 3.3, 3.5, 3.6",
+          "status": "pending"
+        }
       ]
     },
     {
@@ -60,12 +360,82 @@
       "name": "Export + Integration",
       "status": "pending",
       "tasks": [
-        { "id": "L4.1", "title": "Print stylesheet", "files": ["src/styles/print.css"], "depends_on": ["L3.7"], "done_when": "DoD 4.2", "status": "pending" },
-        { "id": "L4.2", "title": "Standalone HTML serialiser with settle-before-serialise", "files": ["src/export/standalone.ts"], "depends_on": ["L3.5", "L4.1"], "done_when": "DoD 4.1, 4.3", "status": "pending" },
-        { "id": "L4.3", "title": "Hardened Playwright print service", "files": ["server/pdf.ts"], "depends_on": ["L0.6"], "done_when": "DoD 4.4, 4.5, 4.6, 4.7", "status": "pending" },
-        { "id": "L4.4", "title": "Export UI + client PDF call", "files": ["src/export/pdf.ts", "src/reader/ExportBar.tsx"], "depends_on": ["L4.2", "L4.3"], "done_when": "Both exports work from the UI", "status": "pending" },
-        { "id": "L4.5", "title": "Adversarial test script", "files": ["tests/adversarial/pdf-endpoint.sh"], "depends_on": ["L4.3"], "done_when": "All hostile payloads blocked or rejected", "status": "pending" },
-        { "id": "L4.6", "title": "End-to-end browser verification", "files": ["tasks/todo.md"], "depends_on": ["L4.4", "L4.5"], "done_when": "Every DoD criterion run and recorded with actual output", "status": "pending" }
+        {
+          "id": "L4.1",
+          "title": "Print stylesheet",
+          "files": [
+            "src/styles/print.css"
+          ],
+          "depends_on": [
+            "L3.7"
+          ],
+          "done_when": "DoD 4.2",
+          "status": "pending"
+        },
+        {
+          "id": "L4.2",
+          "title": "Standalone HTML serialiser with settle-before-serialise",
+          "files": [
+            "src/export/standalone.ts"
+          ],
+          "depends_on": [
+            "L3.5",
+            "L4.1"
+          ],
+          "done_when": "DoD 4.1, 4.3",
+          "status": "pending"
+        },
+        {
+          "id": "L4.3",
+          "title": "Hardened Playwright print service",
+          "files": [
+            "server/pdf.ts"
+          ],
+          "depends_on": [
+            "L0.6"
+          ],
+          "done_when": "DoD 4.4, 4.5, 4.6, 4.7",
+          "status": "pending"
+        },
+        {
+          "id": "L4.4",
+          "title": "Export UI + client PDF call",
+          "files": [
+            "src/export/pdf.ts",
+            "src/reader/ExportBar.tsx"
+          ],
+          "depends_on": [
+            "L4.2",
+            "L4.3"
+          ],
+          "done_when": "Both exports work from the UI",
+          "status": "pending"
+        },
+        {
+          "id": "L4.5",
+          "title": "Adversarial test script",
+          "files": [
+            "tests/adversarial/pdf-endpoint.sh"
+          ],
+          "depends_on": [
+            "L4.3"
+          ],
+          "done_when": "All hostile payloads blocked or rejected",
+          "status": "pending"
+        },
+        {
+          "id": "L4.6",
+          "title": "End-to-end browser verification",
+          "files": [
+            "tasks/todo.md"
+          ],
+          "depends_on": [
+            "L4.4",
+            "L4.5"
+          ],
+          "done_when": "Every DoD criterion run and recorded with actual output",
+          "status": "pending"
+        }
       ]
     }
   ]
