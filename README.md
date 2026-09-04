@@ -29,6 +29,25 @@ docker compose up --build     # → http://localhost:8080
 
 ---
 
+## What it looks like
+
+Drop a folder anywhere on the page. Nothing is uploaded.
+
+![The empty state: a cream paper panel on a dark shell, reading "Drop a folder of markdown."](docs/screenshots/dropzone.png)
+
+Documents are typeset as one continuous reading edition — callouts, Mermaid
+diagrams, highlighted code and KaTeX maths, with the index as navigation.
+
+![A markdown document set as a book page: serif headings, a drop cap, a note callout and a flow diagram, with a contents index down the left](docs/screenshots/reader.png)
+
+Every repair is listed in the document, with the line, the text before and the
+text after. The source file is never modified — the adjustments apply to the
+rendering only.
+
+![The repairs panel expanded, listing a duplicate title and a promoted heading with their line numbers and before/after text](docs/screenshots/repairs.png)
+
+---
+
 ## What it does
 
 - **Understands a folder, not just a file.** Nested directories, frontmatter
@@ -37,10 +56,12 @@ docker compose up --build     # → http://localhost:8080
 - **Renders the whole of markdown.** GFM tables, footnotes and task lists;
   `> [!NOTE]` callouts; KaTeX maths; Shiki syntax highlighting; Mermaid
   diagrams; local images with figure captions and a lightbox.
-- **Repairs messy markdown, and says so.** Skipped heading levels, duplicate
-  H1s and broken list nesting are normalised — and every change is listed in
-  the document, because silently editing someone's writing is not acceptable
-  behaviour for a reader.
+- **Repairs messy markdown, and says so.** Five rules — skipped heading levels,
+  duplicate H1s, broken list nesting, mixed bullet markers and unbalanced
+  emphasis — are normalised for the rendering, never in the source file. Every
+  change is listed in the document with its line number and its before/after
+  text, because silently editing someone's writing is not acceptable behaviour
+  for a reader.
 - **Exports two ways.** A PDF with running heads and page numbers, or one
   portable HTML file that opens correctly with the network disabled.
 
