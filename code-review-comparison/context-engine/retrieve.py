@@ -55,7 +55,7 @@ full_chars = sum(len(d) for d in docs)
 report = ['# Context Engine — retrieval report', '',
           f'- Index: **{len(chunks)} chunks** from 31 TS/TSX files, {full_chars:,} chars',
           f'- Embedding: `all-MiniLM-L6-v2` (384-dim), local ONNX',
-          f'- Vector store: Chroma (ephemeral), cosine similarity',
+          f'- Vector store: Chroma (ephemeral), squared-L2 over unit vectors (rank-identical to cosine)',
           f'- Selective retrieval: top {N_RESULTS} chunks per specialist (union over its queries)', '']
 
 bundles = HERE / 'bundles'; bundles.mkdir(exist_ok=True)
@@ -64,7 +64,10 @@ for agent, queries in AGENTS.items():
     for q in queries:
         r = col.query(query_texts=[q], n_results=12)
         for cid, dist in zip(r['ids'][0], r['distances'][0]):
-            sim = 1 - dist
+            # Chroma's default space is squared L2 and the embeddings are unit
+            # vectors, so d = 2 - 2cos and cos = 1 - d/2. The original run printed
+            # 1 - d, which ranks identically but is not a cosine.
+            sim = 1 - dist / 2
             if sim > scored.get(cid, -9): scored[cid] = sim
     top = sorted(scored.items(), key=lambda kv: -kv[1])[:N_RESULTS]
     sel = [(chunks[int(cid)], sim) for cid, sim in top]
@@ -75,7 +78,7 @@ for agent, queries in AGENTS.items():
            f'({sel_chars:,} of {full_chars:,} chars — '
            f'{(1-sel_chars/full_chars)*100:.1f}% reduction vs full context)', '']
     for c, sim in sel:
-        out.append(f"## {c['type']}: `{c['name']}` — `{c['file_path']}:{c['start_line']}-{c['end_line']}` (sim {sim:+.3f})")
+        out.append(f"## {c['type']}: `{c['name']}` — `{c['file_path']}:{c['start_line']}-{c['end_line']}` (cos {sim:.3f})")
         out.append('```ts'); out.append(c['content']); out.append('```'); out.append('')
     (bundles / f'{agent}.md').write_text('\n'.join(out), encoding='utf-8')
 
@@ -84,7 +87,7 @@ for agent, queries in AGENTS.items():
                   f'({(1-sel_chars/full_chars)*100:.1f}% reduction vs full context)')
     report.append('- top 8 retrieved:')
     for c, sim in sel[:8]:
-        report.append(f"  - `{c['file_path']}:{c['start_line']}` — {c['type']} `{c['name']}` (sim {sim:+.3f})")
+        report.append(f"  - `{c['file_path']}:{c['start_line']}` — {c['type']} `{c['name']}` (cos {sim:.3f})")
     report.append('')
     print(f'{agent:13s}: {len(sel):3d} chunks, {sel_chars:6,d} chars '
           f'({(1-sel_chars/full_chars)*100:.1f}% reduction)')

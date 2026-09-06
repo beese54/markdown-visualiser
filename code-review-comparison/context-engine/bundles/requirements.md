@@ -2,7 +2,7 @@
 
 Retrieved 30 of 199 chunks (25,430 of 118,192 chars — 78.5% reduction vs full context)
 
-## interface: `MarkdownDoc` — `src/types/domain.ts:52-69` (sim +0.202)
+## interface: `MarkdownDoc` — `src/types/domain.ts:52-69` (cos 0.601)
 ```ts
 export interface MarkdownDoc {
   /** Stable hash of the relative path. */
@@ -24,7 +24,7 @@ export interface MarkdownDoc {
 }
 ```
 
-## interface: `IndexSidebarProps` — `src/reader/IndexSidebar.tsx:14-19` (sim +0.115)
+## interface: `IndexSidebarProps` — `src/reader/IndexSidebar.tsx:14-19` (cos 0.557)
 ```ts
 interface IndexSidebarProps {
   readonly set: DocumentSet
@@ -34,14 +34,14 @@ interface IndexSidebarProps {
 }
 ```
 
-## interface: `ShikiOptions` — `src/pipeline/plugins/rehype-shiki.ts:104-106` (sim +0.071)
+## interface: `ShikiOptions` — `src/pipeline/plugins/rehype-shiki.ts:104-106` (cos 0.535)
 ```ts
 interface ShikiOptions {
   readonly highlighter: HighlighterCore
 }
 ```
 
-## function: `getHighlighter` — `src/pipeline/plugins/rehype-shiki.ts:33-51` (sim -0.002)
+## function: `getHighlighter` — `src/pipeline/plugins/rehype-shiki.ts:33-51` (cos 0.499)
 ```ts
 export function getHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= (async () => {
@@ -64,7 +64,7 @@ export function getHighlighter(): Promise<HighlighterCore> {
 }
 ```
 
-## function: `rehypeShiki` — `src/pipeline/plugins/rehype-shiki.ts:113-148` (sim -0.008)
+## function: `rehypeShiki` — `src/pipeline/plugins/rehype-shiki.ts:113-148` (cos 0.496)
 ```ts
 export const rehypeShiki: Plugin<[ShikiOptions], Root> = ({ highlighter }) =>
   (tree: Root) => {
@@ -104,7 +104,7 @@ export const rehypeShiki: Plugin<[ShikiOptions], Root> = ({ highlighter }) =>
   }
 ```
 
-## function: `renderDocument` — `src/pipeline/render.ts:138-207` (sim -0.015)
+## function: `renderDocument` — `src/pipeline/render.ts:138-207` (cos 0.492)
 ```ts
 export async function renderDocument(
   doc: MarkdownDoc,
@@ -178,17 +178,17 @@ export async function renderDocument(
 }
 ```
 
-## const: `highlighterPromise` — `src/pipeline/plugins/rehype-shiki.ts:24-24` (sim -0.031)
+## const: `highlighterPromise` — `src/pipeline/plugins/rehype-shiki.ts:24-24` (cos 0.484)
 ```ts
 let highlighterPromise: Promise<HighlighterCore> | null = null
 ```
 
-## const: `THEMES` — `src/pipeline/plugins/rehype-shiki.ts:22-22` (sim -0.077)
+## const: `THEMES` — `src/pipeline/plugins/rehype-shiki.ts:22-22` (cos 0.462)
 ```ts
 export const THEMES = { light: 'github-light', dark: 'github-dark' } as const
 ```
 
-## function: `IndexSidebar` — `src/reader/IndexSidebar.tsx:21-99` (sim -0.083)
+## function: `IndexSidebar` — `src/reader/IndexSidebar.tsx:21-99` (cos 0.459)
 ```ts
 export function IndexSidebar({ set, activeDoc, headings, onOpenDoc }: IndexSidebarProps) {
   const activeHeading = useActiveHeading(headings)
@@ -271,7 +271,7 @@ export function IndexSidebar({ set, activeDoc, headings, onOpenDoc }: IndexSideb
 }
 ```
 
-## function: `rehypeMermaid` — `src/pipeline/plugins/rehype-mermaid.ts:45-96` (sim -0.099)
+## function: `rehypeMermaid` — `src/pipeline/plugins/rehype-mermaid.ts:45-96` (cos 0.451)
 ```ts
 export const rehypeMermaid: Plugin<[MermaidOptions], Root> = ({ sink }) =>
   (tree: Root) => {
@@ -327,7 +327,7 @@ export const rehypeMermaid: Plugin<[MermaidOptions], Root> = ({ sink }) =>
   }
 ```
 
-## function: `readDoc` — `src/ingest/docset.ts:178-201` (sim -0.109)
+## function: `readDoc` — `src/ingest/docset.ts:178-201` (cos 0.446)
 ```ts
 async function readDoc(entry: WalkedFile): Promise<MarkdownDoc> {
   const raw = await entry.file.text()
@@ -355,7 +355,7 @@ async function readDoc(entry: WalkedFile): Promise<MarkdownDoc> {
 }
 ```
 
-## function: `failedDoc` — `src/ingest/docset.ts:208-225` (sim -0.114)
+## function: `failedDoc` — `src/ingest/docset.ts:208-225` (cos 0.443)
 ```ts
 function failedDoc(entry: WalkedFile, err: unknown): MarkdownDoc {
   const path = normaliseAssetPath(entry.path)
@@ -377,7 +377,7 @@ function failedDoc(entry: WalkedFile, err: unknown): MarkdownDoc {
 }
 ```
 
-## interface: `DocumentViewProps` — `src/reader/DocumentView.tsx:19-26` (sim -0.115)
+## interface: `DocumentViewProps` — `src/reader/DocumentView.tsx:19-26` (cos 0.443)
 ```ts
 interface DocumentViewProps {
   readonly doc: MarkdownDoc
@@ -389,7 +389,7 @@ interface DocumentViewProps {
 }
 ```
 
-## function: `collectLanguages` — `src/pipeline/plugins/rehype-shiki.ts:65-76` (sim -0.130)
+## function: `collectLanguages` — `src/pipeline/plugins/rehype-shiki.ts:65-76` (cos 0.435)
 ```ts
 export function collectLanguages(tree: Root): string[] {
   const found = new Set<string>()
@@ -405,13 +405,13 @@ export function collectLanguages(tree: Root): string[] {
 }
 ```
 
-## function: `isMarkdownPath` — `src/ingest/docset.ts:18-19` (sim -0.130)
+## function: `isMarkdownPath` — `src/ingest/docset.ts:18-19` (cos 0.435)
 ```ts
 const isMarkdownPath = (path: string): boolean =>
   (MARKDOWN_EXTENSIONS as readonly string[]).includes(extensionOf(path))
 ```
 
-## const: `ALIASES` — `src/pipeline/plugins/shiki-langs.ts:62-83` (sim -0.149)
+## const: `ALIASES` — `src/pipeline/plugins/shiki-langs.ts:62-83` (cos 0.425)
 ```ts
 const ALIASES: Readonly<Record<string, string>> = {
   sh: 'bash',
@@ -437,7 +437,7 @@ const ALIASES: Readonly<Record<string, string>> = {
 }
 ```
 
-## interface: `DocumentSet` — `src/types/domain.ts:76-86` (sim -0.150)
+## interface: `DocumentSet` — `src/types/domain.ts:76-86` (cos 0.425)
 ```ts
 export interface DocumentSet {
   readonly id: string
@@ -452,7 +452,7 @@ export interface DocumentSet {
 }
 ```
 
-## function: `buildStandalone` — `src/export/standalone.ts:105-174` (sim -0.162)
+## function: `buildStandalone` — `src/export/standalone.ts:105-174` (cos 0.419)
 ```ts
 export async function buildStandalone({ set, results }: StandaloneOptions): Promise<string> {
   const byId = new Map(results.map((r) => [r.docId, r]))
@@ -526,7 +526,7 @@ export async function buildStandalone({ set, results }: StandaloneOptions): Prom
 }
 ```
 
-## function: `ensureLanguages` — `src/pipeline/plugins/rehype-shiki.ts:85-102` (sim -0.168)
+## function: `ensureLanguages` — `src/pipeline/plugins/rehype-shiki.ts:85-102` (cos 0.416)
 ```ts
 export async function ensureLanguages(
   highlighter: HighlighterCore,
@@ -548,7 +548,7 @@ export async function ensureLanguages(
 }
 ```
 
-## function: `remarkRepair` — `src/pipeline/plugins/remark-repair.ts:270-280` (sim -0.169)
+## function: `remarkRepair` — `src/pipeline/plugins/remark-repair.ts:270-280` (cos 0.415)
 ```ts
 export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root) => {
   // Order matters: emphasis is reported against the original text, while
@@ -563,7 +563,7 @@ export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root
 }
 ```
 
-## function: `renderPdf` — `server/pdf.ts:134-198` (sim -0.182)
+## function: `renderPdf` — `server/pdf.ts:134-198` (cos 0.409)
 ```ts
 export async function renderPdf(request: PdfRequest): Promise<Buffer> {
   // Reject rather than queue without bound.
@@ -632,7 +632,7 @@ export async function renderPdf(request: PdfRequest): Promise<Buffer> {
 }
 ```
 
-## const: `LANG_LOADERS` — `src/pipeline/plugins/shiki-langs.ts:23-59` (sim -0.195)
+## const: `LANG_LOADERS` — `src/pipeline/plugins/shiki-langs.ts:23-59` (cos 0.402)
 ```ts
 export const LANG_LOADERS: Readonly<Record<string, LangLoader>> = {
   bash: () => import('shiki/langs/bash.mjs'),
@@ -673,7 +673,7 @@ export const LANG_LOADERS: Readonly<Record<string, LangLoader>> = {
 }
 ```
 
-## interface: `PdfOptions` — `src/export/pdf.ts:22-26` (sim -0.196)
+## interface: `PdfOptions` — `src/export/pdf.ts:22-26` (cos 0.402)
 ```ts
 export interface PdfOptions {
   readonly html: string
@@ -682,7 +682,7 @@ export interface PdfOptions {
 }
 ```
 
-## class: `ExportTooLargeError` — `src/export/pdf.ts:11-20` (sim -0.196)
+## class: `ExportTooLargeError` — `src/export/pdf.ts:11-20` (cos 0.402)
 ```ts
 export class ExportTooLargeError extends Error {
   constructor(bytes: number) {
@@ -696,7 +696,7 @@ export class ExportTooLargeError extends Error {
 }
 ```
 
-## interface: `StandaloneOptions` — `src/export/standalone.ts:92-96` (sim -0.199)
+## interface: `StandaloneOptions` — `src/export/standalone.ts:92-96` (cos 0.400)
 ```ts
 export interface StandaloneOptions {
   readonly set: DocumentSet
@@ -705,7 +705,7 @@ export interface StandaloneOptions {
 }
 ```
 
-## function: `requestPdf` — `src/export/pdf.ts:28-58` (sim -0.201)
+## function: `requestPdf` — `src/export/pdf.ts:28-58` (cos 0.399)
 ```ts
 export async function requestPdf({ html, title, format = 'A4' }: PdfOptions): Promise<Blob> {
   // Checked here as well as on the server: a clear message beats a 413.
@@ -740,7 +740,7 @@ export async function requestPdf({ html, title, format = 'A4' }: PdfOptions): Pr
 }
 ```
 
-## function: `HeadingTree` — `src/reader/IndexSidebar.tsx:101-135` (sim -0.208)
+## function: `HeadingTree` — `src/reader/IndexSidebar.tsx:101-135` (cos 0.396)
 ```ts
 function HeadingTree({
   headings,
@@ -779,7 +779,7 @@ function HeadingTree({
 }
 ```
 
-## interface: `Frontmatter` — `src/ingest/docset.ts:36-40` (sim -0.217)
+## interface: `Frontmatter` — `src/ingest/docset.ts:36-40` (cos 0.392)
 ```ts
 export interface Frontmatter {
   readonly data: Record<string, unknown>
@@ -788,7 +788,7 @@ export interface Frontmatter {
 }
 ```
 
-## interface: `RepairOptions` — `src/pipeline/plugins/remark-repair.ts:27-35` (sim -0.221)
+## interface: `RepairOptions` — `src/pipeline/plugins/remark-repair.ts:27-35` (cos 0.390)
 ```ts
 interface RepairOptions {
   /** Collected notes are pushed here; the caller owns the array. */
@@ -801,7 +801,7 @@ interface RepairOptions {
 }
 ```
 
-## type: `RepairRule` — `src/types/domain.ts:30-35` (sim -0.229)
+## type: `RepairRule` — `src/types/domain.ts:30-35` (cos 0.386)
 ```ts
 export type RepairRule =
   | 'heading-skip'

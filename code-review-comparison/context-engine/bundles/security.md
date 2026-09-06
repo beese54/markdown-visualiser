@@ -2,7 +2,7 @@
 
 Retrieved 30 of 199 chunks (20,842 of 118,192 chars — 82.4% reduction vs full context)
 
-## function: `resolveLink` — `src/ingest/links.ts:64-101` (sim -0.052)
+## function: `resolveLink` — `src/ingest/links.ts:64-101` (cos 0.474)
 ```ts
 export function resolveLink(
   href: string,
@@ -44,7 +44,7 @@ export function resolveLink(
 }
 ```
 
-## const: `printSchema` — `src/pipeline/sanitize.ts:172-180` (sim -0.063)
+## const: `printSchema` — `src/pipeline/sanitize.ts:172-180` (cos 0.469)
 ```ts
 export const printSchema: SanitizeSchema = {
   ...sanitizeSchema,
@@ -57,7 +57,7 @@ export const printSchema: SanitizeSchema = {
 }
 ```
 
-## function: `resolveRelative` — `src/ingest/assets.ts:28-42` (sim -0.136)
+## function: `resolveRelative` — `src/ingest/assets.ts:28-42` (cos 0.432)
 ```ts
 export function resolveRelative(fromDocPath: string, target: string): string {
   if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return target // absolute URL scheme
@@ -76,13 +76,13 @@ export function resolveRelative(fromDocPath: string, target: string): string {
 }
 ```
 
-## function: `escapeHtml` — `server/pdf.ts:217-218` (sim -0.152)
+## function: `escapeHtml` — `server/pdf.ts:217-218` (cos 0.424)
 ```ts
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 ```
 
-## function: `stripCommonRoot` — `src/ingest/walker.ts:155-177` (sim -0.218)
+## function: `stripCommonRoot` — `src/ingest/walker.ts:155-177` (cos 0.391)
 ```ts
 export function stripCommonRoot(files: readonly WalkedFile[]): {
   rootName: string
@@ -109,13 +109,13 @@ export function stripCommonRoot(files: readonly WalkedFile[]): {
 }
 ```
 
-## function: `escapeHtml` — `src/export/standalone.ts:89-90` (sim -0.230)
+## function: `escapeHtml` — `src/export/standalone.ts:89-90` (cos 0.385)
 ```ts
 const escapeHtml = (value: string): string =>
   value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 ```
 
-## function: `buildDocIndex` — `src/ingest/links.ts:22-55` (sim -0.238)
+## function: `buildDocIndex` — `src/ingest/links.ts:22-55` (cos 0.381)
 ```ts
 export function buildDocIndex(docs: readonly MarkdownDoc[]): Map<string, string> {
   const index = new Map<string, string>()
@@ -153,7 +153,7 @@ export function buildDocIndex(docs: readonly MarkdownDoc[]): Map<string, string>
 }
 ```
 
-## function: `walkEntry` — `src/ingest/walker.ts:62-92` (sim -0.247)
+## function: `walkEntry` — `src/ingest/walker.ts:62-92` (cos 0.377)
 ```ts
 async function walkEntry(
   entry: FileSystemEntry,
@@ -188,7 +188,7 @@ async function walkEntry(
 }
 ```
 
-## type: `LinkTarget` — `src/ingest/links.ts:13-17` (sim -0.247)
+## type: `LinkTarget` — `src/ingest/links.ts:13-17` (cos 0.377)
 ```ts
 export type LinkTarget =
   | { readonly kind: 'internal'; readonly docId: string; readonly hash: string | null }
@@ -197,7 +197,7 @@ export type LinkTarget =
   | { readonly kind: 'missing'; readonly href: string }
 ```
 
-## interface: `RenderResult` — `src/types/domain.ts:95-104` (sim -0.248)
+## interface: `RenderResult` — `src/types/domain.ts:95-104` (cos 0.376)
 ```ts
 export interface RenderResult {
   readonly docId: string
@@ -211,7 +211,7 @@ export interface RenderResult {
 }
 ```
 
-## function: `launch` — `server/pdf.ts:38-52` (sim -0.251)
+## function: `launch` — `server/pdf.ts:38-52` (cos 0.374)
 ```ts
 async function launch(): Promise<Browser> {
   return chromium.launch({
@@ -230,7 +230,7 @@ async function launch(): Promise<Browser> {
 }
 ```
 
-## interface: `AssetOptions` — `src/pipeline/plugins/rehype-assets.ts:21-25` (sim -0.282)
+## interface: `AssetOptions` — `src/pipeline/plugins/rehype-assets.ts:21-25` (cos 0.359)
 ```ts
 interface AssetOptions {
   readonly doc: MarkdownDoc
@@ -239,12 +239,12 @@ interface AssetOptions {
 }
 ```
 
-## const: `ALLOWED_SCHEMES` — `server/pdf.ts:118-118` (sim -0.299)
+## const: `ALLOWED_SCHEMES` — `server/pdf.ts:118-118` (cos 0.351)
 ```ts
 const ALLOWED_SCHEMES = /^(?:data:|blob:|about:)/i
 ```
 
-## interface: `WalkedFile` — `src/ingest/walker.ts:11-15` (sim -0.303)
+## interface: `WalkedFile` — `src/ingest/walker.ts:11-15` (cos 0.349)
 ```ts
 export interface WalkedFile {
   /** POSIX relative path from the drop root, e.g. `guide/img/diagram.png`. */
@@ -253,7 +253,7 @@ export interface WalkedFile {
 }
 ```
 
-## const: `sanitizeSchema` — `src/pipeline/sanitize.ts:82-160` (sim -0.314)
+## const: `sanitizeSchema` — `src/pipeline/sanitize.ts:82-160` (cos 0.343)
 ```ts
 export const sanitizeSchema: SanitizeSchema = {
   ...base,
@@ -336,7 +336,7 @@ export const sanitizeSchema: SanitizeSchema = {
 }
 ```
 
-## function: `makeLinkResolver` — `src/ingest/links.ts:104-108` (sim -0.318)
+## function: `makeLinkResolver` — `src/ingest/links.ts:104-108` (cos 0.341)
 ```ts
 export function makeLinkResolver(set: DocumentSet) {
   const index = buildDocIndex(set.docs)
@@ -345,7 +345,7 @@ export function makeLinkResolver(set: DocumentSet) {
 }
 ```
 
-## function: `collectCss` — `src/export/standalone.ts:37-70` (sim -0.318)
+## function: `collectCss` — `src/export/standalone.ts:37-70` (cos 0.341)
 ```ts
 async function collectCss(): Promise<string> {
   const parts: string[] = []
@@ -383,7 +383,7 @@ async function collectCss(): Promise<string> {
 }
 ```
 
-## const: `useReader` — `src/state/store.ts:28-95` (sim -0.324)
+## const: `useReader` — `src/state/store.ts:28-95` (cos 0.338)
 ```ts
 export const useReader = create<ReaderState>((set, get) => {
   /** Object URLs are owned by the set; discarding one without revoking them
@@ -455,7 +455,7 @@ export const useReader = create<ReaderState>((set, get) => {
 })
 ```
 
-## const: `Prose` — `src/reader/Prose.tsx:16-31` (sim -0.326)
+## const: `Prose` — `src/reader/Prose.tsx:16-31` (cos 0.337)
 ```ts
 export const Prose = memo(function Prose({
   html,
@@ -475,7 +475,7 @@ export const Prose = memo(function Prose({
 })
 ```
 
-## function: `harden` — `server/pdf.ts:120-132` (sim -0.329)
+## function: `harden` — `server/pdf.ts:120-132` (cos 0.336)
 ```ts
 async function harden(context: BrowserContext): Promise<void> {
   // Registered on the context, not the page, so it covers every frame.
@@ -492,12 +492,12 @@ async function harden(context: BrowserContext): Promise<void> {
 }
 ```
 
-## const: `PDF_BODY_LIMIT` — `server/index.ts:20-20` (sim -0.336)
+## const: `PDF_BODY_LIMIT` — `server/index.ts:20-20` (cos 0.332)
 ```ts
 const PDF_BODY_LIMIT = 20 * 1024 * 1024
 ```
 
-## interface: `AssetRef` — `src/types/domain.ts:10-19` (sim -0.338)
+## interface: `AssetRef` — `src/types/domain.ts:10-19` (cos 0.331)
 ```ts
 export interface AssetRef {
   /** Normalised POSIX relative path, lowercased — the lookup key. */
@@ -511,7 +511,7 @@ export interface AssetRef {
 }
 ```
 
-## interface: `MarkdownDoc` — `src/types/domain.ts:52-69` (sim -0.340)
+## interface: `MarkdownDoc` — `src/types/domain.ts:52-69` (cos 0.330)
 ```ts
 export interface MarkdownDoc {
   /** Stable hash of the relative path. */
@@ -533,7 +533,7 @@ export interface MarkdownDoc {
 }
 ```
 
-## function: `renderPdf` — `server/pdf.ts:134-198` (sim -0.343)
+## function: `renderPdf` — `server/pdf.ts:134-198` (cos 0.329)
 ```ts
 export async function renderPdf(request: PdfRequest): Promise<Buffer> {
   // Reject rather than queue without bound.
@@ -602,12 +602,12 @@ export async function renderPdf(request: PdfRequest): Promise<Buffer> {
 }
 ```
 
-## const: `here` — `server/index.ts:22-22` (sim -0.364)
+## const: `here` — `server/index.ts:22-22` (cos 0.318)
 ```ts
 const here = dirname(fileURLToPath(import.meta.url))
 ```
 
-## function: `classes` — `src/pipeline/sanitize.ts:77-80` (sim -0.368)
+## function: `classes` — `src/pipeline/sanitize.ts:77-80` (cos 0.316)
 ```ts
 const classes = (...allowed: (string | RegExp)[]): PropertyDefinition => [
   'className',
@@ -615,7 +615,7 @@ const classes = (...allowed: (string | RegExp)[]): PropertyDefinition => [
 ]
 ```
 
-## function: `walkFileList` — `src/ingest/walker.ts:136-148` (sim -0.369)
+## function: `walkFileList` — `src/ingest/walker.ts:136-148` (cos 0.316)
 ```ts
 export function walkFileList(files: FileList, opts: WalkOptions): WalkedFile[] {
   const out: WalkedFile[] = []
@@ -632,7 +632,7 @@ export function walkFileList(files: FileList, opts: WalkOptions): WalkedFile[] {
 }
 ```
 
-## function: `buildAssetMap` — `src/ingest/assets.ts:73-100` (sim -0.390)
+## function: `buildAssetMap` — `src/ingest/assets.ts:73-100` (cos 0.305)
 ```ts
 export function buildAssetMap(
   files: readonly { path: string; file: File }[],
@@ -664,14 +664,14 @@ export function buildAssetMap(
 }
 ```
 
-## type: `PropertyDefinition` — `src/pipeline/sanitize.ts:9-11` (sim -0.419)
+## type: `PropertyDefinition` — `src/pipeline/sanitize.ts:9-11` (cos 0.290)
 ```ts
 type PropertyDefinition = NonNullable<
   NonNullable<SanitizeSchema['attributes']>[string]
 >[number]
 ```
 
-## function: `inheritedExcept` — `src/pipeline/sanitize.ts:65-69` (sim -0.433)
+## function: `inheritedExcept` — `src/pipeline/sanitize.ts:65-69` (cos 0.283)
 ```ts
 const inheritedExcept = (tag: string, drop: readonly string[]): PropertyDefinition[] =>
   inherited(tag).filter((def) => {

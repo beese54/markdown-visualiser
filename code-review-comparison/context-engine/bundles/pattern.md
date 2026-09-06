@@ -2,7 +2,7 @@
 
 Retrieved 30 of 199 chunks (29,039 of 118,192 chars — 75.4% reduction vs full context)
 
-## function: `RepairNotice` — `src/reader/RepairNotice.tsx:22-86` (sim -0.231)
+## function: `RepairNotice` — `src/reader/RepairNotice.tsx:22-86` (cos 0.385)
 ```ts
 export function RepairNotice({ repairs }: { readonly repairs: readonly RepairNote[] }) {
   const [open, setOpen] = useState(false)
@@ -71,7 +71,7 @@ export function RepairNotice({ repairs }: { readonly repairs: readonly RepairNot
 }
 ```
 
-## function: `withTimeout` — `src/reader/Mermaid.tsx:103-117` (sim -0.239)
+## function: `withTimeout` — `src/reader/Mermaid.tsx:103-117` (cos 0.381)
 ```ts
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -90,7 +90,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 ```
 
-## function: `closeBrowser` — `server/pdf.ts:65-72` (sim -0.245)
+## function: `closeBrowser` — `server/pdf.ts:65-72` (cos 0.378)
 ```ts
 export async function closeBrowser(): Promise<void> {
   const pending = browserPromise
@@ -102,7 +102,7 @@ export async function closeBrowser(): Promise<void> {
 }
 ```
 
-## function: `withDeadline` — `server/pdf.ts:200-214` (sim -0.261)
+## function: `withDeadline` — `server/pdf.ts:200-214` (cos 0.369)
 ```ts
 function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -121,7 +121,7 @@ function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 ```
 
-## function: `useRenderedDoc` — `src/state/render.ts:75-146` (sim -0.261)
+## function: `useRenderedDoc` — `src/state/render.ts:75-146` (cos 0.369)
 ```ts
 export function useRenderedDoc(
   set: DocumentSet | null,
@@ -197,7 +197,7 @@ export function useRenderedDoc(
 }
 ```
 
-## function: `renderPdf` — `server/pdf.ts:134-198` (sim -0.264)
+## function: `renderPdf` — `server/pdf.ts:134-198` (cos 0.368)
 ```ts
 export async function renderPdf(request: PdfRequest): Promise<Buffer> {
   // Reject rather than queue without bound.
@@ -266,7 +266,7 @@ export async function renderPdf(request: PdfRequest): Promise<Buffer> {
 }
 ```
 
-## function: `ProgressRail` — `src/reader/ProgressRail.tsx:13-62` (sim -0.293)
+## function: `ProgressRail` — `src/reader/ProgressRail.tsx:13-62` (cos 0.354)
 ```ts
 export function ProgressRail({
   scrollHost,
@@ -320,7 +320,7 @@ export function ProgressRail({
 }
 ```
 
-## function: `useMermaid` — `src/reader/Mermaid.tsx:184-209` (sim -0.294)
+## function: `useMermaid` — `src/reader/Mermaid.tsx:184-209` (cos 0.353)
 ```ts
 export function useMermaid(
   root: RefObject<HTMLElement | null>,
@@ -350,7 +350,7 @@ export function useMermaid(
 }
 ```
 
-## function: `cancelIdleCallbackShim` — `src/state/render.ts:166-173` (sim -0.296)
+## function: `cancelIdleCallbackShim` — `src/state/render.ts:166-173` (cos 0.352)
 ```ts
 function cancelIdleCallbackShim(handle: IdleHandle): void {
   const w = window as Window & { cancelIdleCallback?: (id: number) => void }
@@ -362,7 +362,7 @@ function cancelIdleCallbackShim(handle: IdleHandle): void {
 }
 ```
 
-## function: `harden` — `server/pdf.ts:120-132` (sim -0.330)
+## function: `harden` — `server/pdf.ts:120-132` (cos 0.335)
 ```ts
 async function harden(context: BrowserContext): Promise<void> {
   // Registered on the context, not the page, so it covers every frame.
@@ -379,7 +379,7 @@ async function harden(context: BrowserContext): Promise<void> {
 }
 ```
 
-## const: `Prose` — `src/reader/Prose.tsx:16-31` (sim -0.345)
+## const: `Prose` — `src/reader/Prose.tsx:16-31` (cos 0.328)
 ```ts
 export const Prose = memo(function Prose({
   html,
@@ -399,7 +399,7 @@ export const Prose = memo(function Prose({
 })
 ```
 
-## function: `toDataUri` — `src/export/standalone.ts:14-28` (sim -0.350)
+## function: `toDataUri` — `src/export/standalone.ts:14-28` (cos 0.325)
 ```ts
 async function toDataUri(url: string): Promise<string | null> {
   try {
@@ -418,7 +418,7 @@ async function toDataUri(url: string): Promise<string | null> {
 }
 ```
 
-## function: `readAllEntries` — `src/ingest/walker.ts:40-57` (sim -0.353)
+## function: `readAllEntries` — `src/ingest/walker.ts:40-57` (cos 0.324)
 ```ts
 function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
   return new Promise((resolve, reject) => {
@@ -440,7 +440,7 @@ function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEn
 }
 ```
 
-## function: `launch` — `server/pdf.ts:38-52` (sim -0.356)
+## function: `launch` — `server/pdf.ts:38-52` (cos 0.322)
 ```ts
 async function launch(): Promise<Browser> {
   return chromium.launch({
@@ -459,7 +459,7 @@ async function launch(): Promise<Browser> {
 }
 ```
 
-## function: `render` — `src/state/render.ts:39-62` (sim -0.358)
+## function: `render` — `src/state/render.ts:39-62` (cos 0.321)
 ```ts
 export function render(set: DocumentSet, doc: MarkdownDoc): Promise<RenderResult> {
   const done = mapFor(cache, set)
@@ -487,7 +487,7 @@ export function render(set: DocumentSet, doc: MarkdownDoc): Promise<RenderResult
 }
 ```
 
-## const: `sanitizeSchema` — `src/pipeline/sanitize.ts:82-160` (sim -0.364)
+## const: `sanitizeSchema` — `src/pipeline/sanitize.ts:82-160` (cos 0.318)
 ```ts
 export const sanitizeSchema: SanitizeSchema = {
   ...base,
@@ -570,7 +570,7 @@ export const sanitizeSchema: SanitizeSchema = {
 }
 ```
 
-## const: `useReader` — `src/state/store.ts:28-95` (sim -0.371)
+## const: `useReader` — `src/state/store.ts:28-95` (cos 0.315)
 ```ts
 export const useReader = create<ReaderState>((set, get) => {
   /** Object URLs are owned by the set; discarding one without revoking them
@@ -642,7 +642,7 @@ export const useReader = create<ReaderState>((set, get) => {
 })
 ```
 
-## function: `cachedOrPending` — `src/state/render.ts:148-151` (sim -0.385)
+## function: `cachedOrPending` — `src/state/render.ts:148-151` (cos 0.307)
 ```ts
 function cachedOrPending(set: DocumentSet, doc: MarkdownDoc): RenderState {
   const cached = getCached(set, doc.id)
@@ -650,7 +650,7 @@ function cachedOrPending(set: DocumentSet, doc: MarkdownDoc): RenderState {
 }
 ```
 
-## function: `renderDocument` — `src/pipeline/render.ts:138-207` (sim -0.395)
+## function: `renderDocument` — `src/pipeline/render.ts:138-207` (cos 0.302)
 ```ts
 export async function renderDocument(
   doc: MarkdownDoc,
@@ -724,7 +724,7 @@ export async function renderDocument(
 }
 ```
 
-## function: `loadMermaid` — `src/reader/Mermaid.tsx:32-76` (sim -0.396)
+## function: `loadMermaid` — `src/reader/Mermaid.tsx:32-76` (cos 0.302)
 ```ts
 function loadMermaid(): Promise<MermaidApi> {
   // Caching the promise is what makes initialize() run exactly once. Caching a
@@ -773,7 +773,7 @@ function loadMermaid(): Promise<MermaidApi> {
 }
 ```
 
-## function: `remarkRepair` — `src/pipeline/plugins/remark-repair.ts:270-280` (sim -0.408)
+## function: `remarkRepair` — `src/pipeline/plugins/remark-repair.ts:270-280` (cos 0.296)
 ```ts
 export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root) => {
   // Order matters: emphasis is reported against the original text, while
@@ -788,7 +788,7 @@ export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root
 }
 ```
 
-## function: `getBrowser` — `server/pdf.ts:54-63` (sim -0.418)
+## function: `getBrowser` — `server/pdf.ts:54-63` (cos 0.291)
 ```ts
 export function getBrowser(): Promise<Browser> {
   browserPromise ??= launch().then((browser) => {
@@ -802,14 +802,14 @@ export function getBrowser(): Promise<Browser> {
 }
 ```
 
-## interface: `RepairResult` — `src/pipeline/plugins/remark-repair.ts:23-25` (sim -0.426)
+## interface: `RepairResult` — `src/pipeline/plugins/remark-repair.ts:23-25` (cos 0.287)
 ```ts
 export interface RepairResult {
   readonly notes: RepairNote[]
 }
 ```
 
-## function: `useActiveHeading` — `src/reader/IndexSidebar.tsx:151-202` (sim -0.427)
+## function: `useActiveHeading` — `src/reader/IndexSidebar.tsx:151-202` (cos 0.286)
 ```ts
 function useActiveHeading(headings: readonly Heading[]): string | null {
   const [active, setActive] = useState<string | null>(null)
@@ -865,7 +865,7 @@ function useActiveHeading(headings: readonly Heading[]): string | null {
 }
 ```
 
-## function: `requestIdleCallbackShim` — `src/state/render.ts:156-164` (sim -0.427)
+## function: `requestIdleCallbackShim` — `src/state/render.ts:156-164` (cos 0.286)
 ```ts
 function requestIdleCallbackShim(fn: () => void): IdleHandle {
   const w = window as Window & {
@@ -878,7 +878,7 @@ function requestIdleCallbackShim(fn: () => void): IdleHandle {
 }
 ```
 
-## class: `IngestError` — `src/types/domain.ts:121-133` (sim -0.433)
+## class: `IngestError` — `src/types/domain.ts:121-133` (cos 0.283)
 ```ts
 export class IngestError extends Error {
   constructor(
@@ -895,7 +895,7 @@ export class IngestError extends Error {
 }
 ```
 
-## interface: `Heading` — `src/types/domain.ts:21-28` (sim -0.433)
+## interface: `Heading` — `src/types/domain.ts:21-28` (cos 0.283)
 ```ts
 export interface Heading {
   /** Slug, unique within its document. */
@@ -907,7 +907,7 @@ export interface Heading {
 }
 ```
 
-## function: `collectLanguages` — `src/pipeline/plugins/rehype-shiki.ts:65-76` (sim -0.448)
+## function: `collectLanguages` — `src/pipeline/plugins/rehype-shiki.ts:65-76` (cos 0.276)
 ```ts
 export function collectLanguages(tree: Root): string[] {
   const found = new Set<string>()
@@ -923,14 +923,14 @@ export function collectLanguages(tree: Root): string[] {
 }
 ```
 
-## interface: `BuildOptions` — `src/ingest/docset.ts:120-122` (sim -0.458)
+## interface: `BuildOptions` — `src/ingest/docset.ts:120-122` (cos 0.271)
 ```ts
 export interface BuildOptions {
   readonly rootName: string
 }
 ```
 
-## interface: `RepairNote` — `src/types/domain.ts:44-50` (sim -0.463)
+## interface: `RepairNote` — `src/types/domain.ts:44-50` (cos 0.268)
 ```ts
 export interface RepairNote {
   readonly rule: RepairRule
