@@ -1,0 +1,1594 @@
+[
+  {
+    "type": "function",
+    "name": "App",
+    "file_path": "src/app/App.tsx",
+    "start_line": 11,
+    "end_line": 14,
+    "content": "export function App() {\n  const hasSet = useReader((s) => s.set !== null)\n  return hasSet ? <Shell /> : <div className=\"shell\"><Dropzone /></div>\n}"
+  },
+  {
+    "type": "class",
+    "name": "ExportTooLargeError",
+    "file_path": "src/export/pdf.ts",
+    "start_line": 11,
+    "end_line": 20,
+    "content": "export class ExportTooLargeError extends Error {\n  constructor(bytes: number) {\n    super(\n      `This export is ${(bytes / 1024 / 1024).toFixed(1)} MB, over the ` +\n        `${LIMITS.pdfBodyLimitBytes / 1024 / 1024} MB limit. Try the ` +\n        'self-contained HTML export instead.',\n    )\n    this.name = 'ExportTooLargeError'\n  }\n}"
+  },
+  {
+    "type": "interface",
+    "name": "PdfOptions",
+    "file_path": "src/export/pdf.ts",
+    "start_line": 22,
+    "end_line": 26,
+    "content": "export interface PdfOptions {\n  readonly html: string\n  readonly title: string\n  readonly format?: 'A4' | 'Letter'\n}"
+  },
+  {
+    "type": "function",
+    "name": "requestPdf",
+    "file_path": "src/export/pdf.ts",
+    "start_line": 28,
+    "end_line": 58,
+    "content": "export async function requestPdf({ html, title, format = 'A4' }: PdfOptions): Promise<Blob> {\n  // Checked here as well as on the server: a clear message beats a 413.\n  const bytes = new Blob([html]).size\n  if (bytes > LIMITS.pdfBodyLimitBytes) throw new ExportTooLargeError(bytes)\n\n  const response = await fetch('/api/export/pdf', {\n    method: 'POST',\n    headers: { 'content-type': 'application/json' },\n    body: JSON.stringify({ html, title, format }),\n  })\n\n  if (!response.ok) {\n    const message = await response\n      .json()\n      .then((body: unknown) =>\n        typeof body === 'object' && body !== null && 'error' in body\n          ? String((body as { error: unknown }).error)\n          : null,\n      )\n      .catch(() => null)\n\n    throw new Error(\n      message ??\n        (response.status === 413\n          ? 'This export is too large for the print service.'\n          : `The print service returned ${response.status}.`),\n    )\n  }\n\n  return response.blob()\n}"
+  },
+  {
+    "type": "function",
+    "name": "downloadBlob",
+    "file_path": "src/export/pdf.ts",
+    "start_line": 60,
+    "end_line": 70,
+    "content": "export function downloadBlob(blob: Blob, filename: string): void {\n  const url = URL.createObjectURL(blob)\n  const link = document.createElement('a')\n  link.href = url\n  link.download = filename\n  link.rel = 'noopener'\n  document.body.append(link)\n  link.click()\n  link.remove()\n  setTimeout(() => URL.revokeObjectURL(url), 10_000)\n}"
+  },
+  {
+    "type": "function",
+    "name": "toDataUri",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 14,
+    "end_line": 28,
+    "content": "async function toDataUri(url: string): Promise<string | null> {\n  try {\n    const response = await fetch(url)\n    if (!response.ok) return null\n    const blob = await response.blob()\n    return await new Promise<string | null>((resolve) => {\n      const reader = new FileReader()\n      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)\n      reader.onerror = () => resolve(null)\n      reader.readAsDataURL(blob)\n    })\n  } catch {\n    return null\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "collectCss",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 37,
+    "end_line": 70,
+    "content": "async function collectCss(): Promise<string> {\n  const parts: string[] = []\n\n  for (const sheet of Array.from(document.styleSheets)) {\n    let text = ''\n    try {\n      text = Array.from(sheet.cssRules)\n        .map((rule) => rule.cssText)\n        .join('\\n')\n    } catch {\n      // A cross-origin sheet cannot be read. There should be none - the app\n      // makes no third-party requests - so this is a safety net, not a path.\n      continue\n    }\n\n    // Resolve relative url() references against the sheet, then inline them.\n    const base = sheet.href ?? document.baseURI\n    const urls = new Set(\n      [...text.matchAll(/url\\((['\"]?)([^'\")]+)\\1\\)/g)]\n        .map((m) => m[2])\n        .filter((u): u is string => u !== undefined && !u.startsWith('data:')),\n    )\n\n    for (const url of urls) {\n      const absolute = new URL(url, base).href\n      const dataUri = await toDataUri(absolute)\n      if (dataUri !== null) text = text.split(url).join(dataUri)\n    }\n\n    parts.push(text)\n  }\n\n  return parts.join('\\n')\n}"
+  },
+  {
+    "type": "function",
+    "name": "inlineImages",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 73,
+    "end_line": 87,
+    "content": "async function inlineImages(root: HTMLElement): Promise<void> {\n  const images = [...root.querySelectorAll('img')]\n  await Promise.all(\n    images.map(async (img) => {\n      const src = img.getAttribute('src')\n      if (src === null || src.startsWith('data:')) return\n      const dataUri = await toDataUri(src)\n      if (dataUri !== null) img.setAttribute('src', dataUri)\n      else img.removeAttribute('src')\n      // Lazy loading is meaningless in a static file and blocks printing.\n      img.removeAttribute('loading')\n      img.removeAttribute('decoding')\n    }),\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "escapeHtml",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 89,
+    "end_line": 90,
+    "content": "const escapeHtml = (value: string): string =>\n  value.replace(/[&<>\"']/g, (c) => `&#${c.charCodeAt(0)};`)"
+  },
+  {
+    "type": "interface",
+    "name": "StandaloneOptions",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 92,
+    "end_line": 96,
+    "content": "export interface StandaloneOptions {\n  readonly set: DocumentSet\n  /** Rendered results, in reading order. */\n  readonly results: readonly RenderResult[]\n}"
+  },
+  {
+    "type": "function",
+    "name": "buildStandalone",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 105,
+    "end_line": 174,
+    "content": "export async function buildStandalone({ set, results }: StandaloneOptions): Promise<string> {\n  const byId = new Map(results.map((r) => [r.docId, r]))\n\n  // A detached host, so building the export never disturbs what is on screen.\n  const host = document.createElement('div')\n  host.className = 'export-root'\n\n  for (const doc of set.docs) {\n    const result = byId.get(doc.id)\n    if (!result || doc.error !== null) continue\n\n    const article = document.createElement('article')\n    article.className = 'doc'\n\n    const header = document.createElement('header')\n    header.className = 'doc-head'\n    const title = document.createElement('h1')\n    title.className = 'doc-title'\n    title.id = `doc-${doc.id}`\n    title.textContent = doc.title\n    header.append(title)\n\n    const body = document.createElement('div')\n    body.className = 'prose'\n    // Pipeline output, already past the trust boundary.\n    body.innerHTML = result.html\n\n    article.append(header, body)\n    host.append(article)\n  }\n\n  // Diagrams must be static SVG before serialising: the print context runs\n  // with JavaScript disabled, so a placeholder left here never becomes a\n  // diagram. Anything already drawn on screen is copied; the rest - every\n  // document the reader never opened - is drawn here.\n  await whenDiagramsSettled()\n  copyRenderedDiagrams(host)\n\n  // mermaid measures text, so the host must be laid out. Attached off-screen\n  // rather than detached, then removed once the SVG is in hand.\n  host.style.position = 'fixed'\n  host.style.left = '-10000px'\n  host.style.top = '0'\n  host.style.width = '820px'\n  document.body.append(host)\n  try {\n    await drawDiagramsIn(host, allMermaidBlocks(results))\n  } finally {\n    host.remove()\n    host.removeAttribute('style')\n  }\n\n  await inlineImages(host)\n  const css = await collectCss()\n\n  return [\n    '<!doctype html>',\n    '<html lang=\"en\">',\n    '<head>',\n    '<meta charset=\"utf-8\">',\n    '<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">',\n    `<title>${escapeHtml(set.rootName)}</title>`,\n    `<style>\\n${css}\\n</style>`,\n    '</head>',\n    '<body>',\n    host.outerHTML,\n    '</body>',\n    '</html>',\n  ].join('\\n')\n}"
+  },
+  {
+    "type": "function",
+    "name": "allMermaidBlocks",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 177,
+    "end_line": 179,
+    "content": "function allMermaidBlocks(results: readonly RenderResult[]) {\n  return results.flatMap((r) => [...r.mermaidBlocks])\n}"
+  },
+  {
+    "type": "function",
+    "name": "copyRenderedDiagrams",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 187,
+    "end_line": 199,
+    "content": "function copyRenderedDiagrams(host: HTMLElement): void {\n  for (const figure of host.querySelectorAll<HTMLElement>('[data-mermaid]')) {\n    const id = figure.getAttribute('data-mermaid')\n    if (id === null) continue\n\n    const drawn = document.querySelector(`[data-mermaid=\"${CSS.escape(id)}\"] .mermaid-slot svg`)\n    const slot = figure.querySelector<HTMLElement>('.mermaid-slot')\n    if (!drawn || !slot) continue\n\n    slot.replaceChildren(drawn.cloneNode(true))\n    slot.classList.add('is-drawn')\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "downloadStandalone",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 202,
+    "end_line": 214,
+    "content": "export function downloadStandalone(html: string, filename: string): void {\n  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })\n  const url = URL.createObjectURL(blob)\n  const link = document.createElement('a')\n  link.href = url\n  link.download = filename\n  link.rel = 'noopener'\n  document.body.append(link)\n  link.click()\n  link.remove()\n  // Revoking immediately can cancel the download in some browsers.\n  setTimeout(() => URL.revokeObjectURL(url), 10_000)\n}"
+  },
+  {
+    "type": "function",
+    "name": "safeFilename",
+    "file_path": "src/export/standalone.ts",
+    "start_line": 216,
+    "end_line": 219,
+    "content": "export const safeFilename = (name: string, extension: string): string => {\n  const base = name.replace(/[^\\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)\n  return `${base === '' ? 'documents' : base}.${extension}`\n}"
+  },
+  {
+    "type": "function",
+    "name": "normaliseAssetPath",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 18,
+    "end_line": 25,
+    "content": "export function normaliseAssetPath(path: string): string {\n  return path\n    .replace(/\\\\/g, '/')\n    .replace(/^\\.\\//, '')\n    .replace(/\\/+/g, '/')\n    .replace(/^\\//, '')\n    .toLowerCase()\n}"
+  },
+  {
+    "type": "function",
+    "name": "resolveRelative",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 28,
+    "end_line": 42,
+    "content": "export function resolveRelative(fromDocPath: string, target: string): string {\n  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return target // absolute URL scheme\n  if (target.startsWith('/')) return normaliseAssetPath(target)\n\n  const slash = fromDocPath.lastIndexOf('/')\n  const baseDir = slash === -1 ? '' : fromDocPath.slice(0, slash)\n\n  const segments = baseDir === '' ? [] : baseDir.split('/')\n  for (const part of target.replace(/\\\\/g, '/').split('/')) {\n    if (part === '' || part === '.') continue\n    if (part === '..') segments.pop()\n    else segments.push(part)\n  }\n  return normaliseAssetPath(segments.join('/'))\n}"
+  },
+  {
+    "type": "const",
+    "name": "MIME_BY_EXT",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 44,
+    "end_line": 54,
+    "content": "const MIME_BY_EXT: Readonly<Record<string, string>> = {\n  '.png': 'image/png',\n  '.jpg': 'image/jpeg',\n  '.jpeg': 'image/jpeg',\n  '.gif': 'image/gif',\n  '.webp': 'image/webp',\n  '.avif': 'image/avif',\n  '.svg': 'image/svg+xml',\n  '.bmp': 'image/bmp',\n  '.ico': 'image/x-icon',\n}"
+  },
+  {
+    "type": "function",
+    "name": "extensionOf",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 56,
+    "end_line": 59,
+    "content": "export function extensionOf(path: string): string {\n  const dot = path.lastIndexOf('.')\n  return dot === -1 ? '' : path.slice(dot).toLowerCase()\n}"
+  },
+  {
+    "type": "function",
+    "name": "isImagePath",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 61,
+    "end_line": 62,
+    "content": "export const isImagePath = (path: string): boolean =>\n  (IMAGE_EXTENSIONS as readonly string[]).includes(extensionOf(path))"
+  },
+  {
+    "type": "function",
+    "name": "mimeFor",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 64,
+    "end_line": 66,
+    "content": "export function mimeFor(path: string, fallback: string): string {\n  return MIME_BY_EXT[extensionOf(path)] ?? (fallback !== '' ? fallback : 'application/octet-stream')\n}"
+  },
+  {
+    "type": "function",
+    "name": "buildAssetMap",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 73,
+    "end_line": 100,
+    "content": "export function buildAssetMap(\n  files: readonly { path: string; file: File }[],\n): Map<string, AssetRef> {\n  const map = new Map<string, AssetRef>()\n\n  for (const { path, file } of files) {\n    if (!isImagePath(path)) continue\n    const key = normaliseAssetPath(path)\n    if (map.has(key)) continue // first wins; a duplicate key is a collision, not an update\n\n    // The blob is retyped from the file extension rather than trusting\n    // `file.type`. A File produced by a directory drop often carries an empty\n    // type, and an untyped blob becomes `data:text/plain` when the exporter\n    // reads it back - which no browser will render as an image.\n    const mime = mimeFor(path, file.type)\n    const typed = file.type === mime ? file : new Blob([file], { type: mime })\n\n    map.set(key, {\n      path: key,\n      originalPath: path,\n      url: URL.createObjectURL(typed),\n      mime,\n      bytes: file.size,\n    })\n  }\n\n  return map\n}"
+  },
+  {
+    "type": "function",
+    "name": "lookupAsset",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 107,
+    "end_line": 128,
+    "content": "export function lookupAsset(\n  assets: ReadonlyMap<string, AssetRef>,\n  fromDocPath: string,\n  target: string,\n): AssetRef | null {\n  const resolved = resolveRelative(fromDocPath, target)\n  const direct = assets.get(resolved)\n  if (direct) return direct\n\n  const bare = resolved.slice(resolved.lastIndexOf('/') + 1)\n  if (bare === '') return null\n\n  let match: AssetRef | null = null\n  for (const asset of assets.values()) {\n    if (asset.path.endsWith(`/${bare}`) || asset.path === bare) {\n      // Ambiguous basename: refuse rather than guess at the wrong image.\n      if (match) return null\n      match = asset\n    }\n  }\n  return match\n}"
+  },
+  {
+    "type": "function",
+    "name": "revokeAssets",
+    "file_path": "src/ingest/assets.ts",
+    "start_line": 130,
+    "end_line": 132,
+    "content": "export function revokeAssets(assets: ReadonlyMap<string, AssetRef>): void {\n  for (const asset of assets.values()) URL.revokeObjectURL(asset.url)\n}"
+  },
+  {
+    "type": "function",
+    "name": "isMarkdownPath",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 18,
+    "end_line": 19,
+    "content": "const isMarkdownPath = (path: string): boolean =>\n  (MARKDOWN_EXTENSIONS as readonly string[]).includes(extensionOf(path))"
+  },
+  {
+    "type": "function",
+    "name": "hashPath",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 22,
+    "end_line": 29,
+    "content": "export function hashPath(path: string): string {\n  let hash = 0x811c9dc5\n  for (let i = 0; i < path.length; i++) {\n    hash ^= path.charCodeAt(i)\n    hash = Math.imul(hash, 0x01000193) >>> 0\n  }\n  return hash.toString(36).padStart(7, '0')\n}"
+  },
+  {
+    "type": "const",
+    "name": "FRONTMATTER_RE",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 34,
+    "end_line": 34,
+    "content": "const FRONTMATTER_RE = /^\\uFEFF?---\\r?\\n([\\s\\S]*?)\\r?\\n---[ \\t]*(?:\\r?\\n|$)/"
+  },
+  {
+    "type": "interface",
+    "name": "Frontmatter",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 36,
+    "end_line": 40,
+    "content": "export interface Frontmatter {\n  readonly data: Record<string, unknown>\n  /** The document body with the frontmatter block removed. */\n  readonly body: string\n}"
+  },
+  {
+    "type": "function",
+    "name": "extractFrontmatter",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 47,
+    "end_line": 63,
+    "content": "export function extractFrontmatter(raw: string): Frontmatter {\n  const match = FRONTMATTER_RE.exec(raw)\n  if (!match?.[1]) return { data: {}, body: raw }\n\n  try {\n    const parsed: unknown = parseYaml(match[1])\n    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {\n      return { data: {}, body: raw.slice(match[0].length) }\n    }\n    return {\n      data: parsed as Record<string, unknown>,\n      body: raw.slice(match[0].length),\n    }\n  } catch {\n    return { data: {}, body: raw }\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "firstHeading",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 66,
+    "end_line": 74,
+    "content": "export function firstHeading(body: string): string | null {\n  const atx = /^[ \\t]{0,3}#[ \\t]+(.+?)[ \\t]*#*[ \\t]*$/m.exec(body)\n  if (atx?.[1]) return atx[1].trim()\n\n  const setext = /^[ \\t]{0,3}(\\S.*)\\r?\\n[ \\t]{0,3}=+[ \\t]*$/m.exec(body)\n  if (setext?.[1]) return setext[1].trim()\n\n  return null\n}"
+  },
+  {
+    "type": "function",
+    "name": "coerceOrder",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 76,
+    "end_line": 83,
+    "content": "function coerceOrder(value: unknown): number | null {\n  if (typeof value === 'number' && Number.isFinite(value)) return value\n  if (typeof value === 'string') {\n    const parsed = Number.parseFloat(value)\n    return Number.isFinite(parsed) ? parsed : null\n  }\n  return null\n}"
+  },
+  {
+    "type": "function",
+    "name": "coerceTitle",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 85,
+    "end_line": 87,
+    "content": "function coerceTitle(value: unknown): string | null {\n  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null\n}"
+  },
+  {
+    "type": "function",
+    "name": "assertWithinLimits",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 90,
+    "end_line": 106,
+    "content": "export function assertWithinLimits(files: readonly WalkedFile[]): void {\n  if (files.length > LIMITS.maxFiles) {\n    throw new IngestError(\n      `That drop contains ${files.length.toLocaleString()} files. The limit is ` +\n        `${LIMITS.maxFiles.toLocaleString()} — try dropping a single folder instead.`,\n      'too-many-files',\n    )\n  }\n\n  const total = files.reduce((sum, f) => sum + f.file.size, 0)\n  if (total > LIMITS.maxTotalBytes) {\n    throw new IngestError(\n      `That drop is ${formatBytes(total)}. The limit is ${formatBytes(LIMITS.maxTotalBytes)}.`,\n      'too-large',\n    )\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "formatBytes",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 108,
+    "end_line": 118,
+    "content": "export function formatBytes(bytes: number): string {\n  if (bytes < 1024) return `${bytes} B`\n  const units = ['KB', 'MB', 'GB']\n  let value = bytes / 1024\n  let unit = 0\n  while (value >= 1024 && unit < units.length - 1) {\n    value /= 1024\n    unit++\n  }\n  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`\n}"
+  },
+  {
+    "type": "interface",
+    "name": "BuildOptions",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 120,
+    "end_line": 122,
+    "content": "export interface BuildOptions {\n  readonly rootName: string\n}"
+  },
+  {
+    "type": "function",
+    "name": "buildDocumentSet",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 124,
+    "end_line": 176,
+    "content": "export async function buildDocumentSet(\n  files: readonly WalkedFile[],\n  opts: BuildOptions,\n): Promise<DocumentSet> {\n  assertWithinLimits(files)\n\n  const skipped: SkippedFile[] = []\n  const markdownFiles: WalkedFile[] = []\n  const imageFiles: WalkedFile[] = []\n\n  for (const entry of files) {\n    if (isMarkdownPath(entry.path)) {\n      if (entry.file.size > LIMITS.maxSingleFileBytes) {\n        skipped.push({\n          path: entry.path,\n          reason: `${formatBytes(entry.file.size)} exceeds the ${formatBytes(\n            LIMITS.maxSingleFileBytes,\n          )} single-file limit`,\n        })\n        continue\n      }\n      markdownFiles.push(entry)\n    } else if (isImagePath(entry.path)) {\n      imageFiles.push(entry)\n    } else {\n      skipped.push({ path: entry.path, reason: 'not a markdown or image file' })\n    }\n  }\n\n  if (markdownFiles.length === 0) {\n    throw new IngestError(\n      files.length === 0\n        ? 'Nothing was dropped.'\n        : `No markdown files found among ${files.length.toLocaleString()} files. ` +\n          `Looked for ${MARKDOWN_EXTENSIONS.join(', ')}.`,\n      'no-markdown',\n    )\n  }\n\n  const docs = await Promise.all(\n    markdownFiles.map((entry) => readDoc(entry).catch((err: unknown) => failedDoc(entry, err))),\n  )\n\n  return {\n    id: hashPath(`${opts.rootName}:${Date.now()}`),\n    rootName: opts.rootName,\n    docs: sortByReadingOrder(docs),\n    assets: buildAssetMap(imageFiles),\n    skipped,\n    totalBytes: files.reduce((sum, f) => sum + f.file.size, 0),\n    createdAt: Date.now(),\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "readDoc",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 178,
+    "end_line": 201,
+    "content": "async function readDoc(entry: WalkedFile): Promise<MarkdownDoc> {\n  const raw = await entry.file.text()\n  const { data, body } = extractFrontmatter(raw)\n\n  const path = normaliseAssetPath(entry.path)\n  const slash = path.lastIndexOf('/')\n  const filename = slash === -1 ? path : path.slice(slash + 1)\n  const dir = slash === -1 ? '' : path.slice(0, slash)\n  const order = coerceOrder(data['order'])\n\n  return {\n    id: hashPath(path),\n    path,\n    dir,\n    filename,\n    title:\n      coerceTitle(data['title']) ?? firstHeading(body) ?? prettifyFilename(filename),\n    frontmatter: data,\n    raw,\n    order,\n    sortKey: computeSortKey({ path, order }),\n    error: null,\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "failedDoc",
+    "file_path": "src/ingest/docset.ts",
+    "start_line": 208,
+    "end_line": 225,
+    "content": "function failedDoc(entry: WalkedFile, err: unknown): MarkdownDoc {\n  const path = normaliseAssetPath(entry.path)\n  const slash = path.lastIndexOf('/')\n  const filename = slash === -1 ? path : path.slice(slash + 1)\n\n  return {\n    id: hashPath(path),\n    path,\n    dir: slash === -1 ? '' : path.slice(0, slash),\n    filename,\n    title: prettifyFilename(filename),\n    frontmatter: {},\n    raw: '',\n    order: null,\n    sortKey: computeSortKey({ path, order: null }),\n    error: err instanceof Error ? err.message : 'Could not read this file',\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "Dropzone",
+    "file_path": "src/ingest/Dropzone.tsx",
+    "start_line": 13,
+    "end_line": 127,
+    "content": "export function Dropzone() {\n  const phase = useReader((s) => s.phase)\n  const ingestDataTransfer = useReader((s) => s.ingestDataTransfer)\n  const ingestFileList = useReader((s) => s.ingestFileList)\n\n  const [dragging, setDragging] = useState(false)\n  // Drag events fire for every child element, so a plain boolean flickers.\n  const depth = useRef(0)\n  const inputRef = useRef<HTMLInputElement>(null)\n\n  useEffect(() => {\n    const onDragEnter = (e: DragEvent) => {\n      if (!e.dataTransfer?.types.includes('Files')) return\n      depth.current += 1\n      setDragging(true)\n    }\n    const onDragOver = (e: DragEvent) => {\n      if (!e.dataTransfer?.types.includes('Files')) return\n      e.preventDefault()\n      e.dataTransfer.dropEffect = 'copy'\n    }\n    const onDragLeave = () => {\n      depth.current = Math.max(0, depth.current - 1)\n      if (depth.current === 0) setDragging(false)\n    }\n    const onDrop = (e: DragEvent) => {\n      if (!e.dataTransfer) return\n      e.preventDefault()\n      depth.current = 0\n      setDragging(false)\n      void ingestDataTransfer(e.dataTransfer)\n    }\n\n    window.addEventListener('dragenter', onDragEnter)\n    window.addEventListener('dragover', onDragOver)\n    window.addEventListener('dragleave', onDragLeave)\n    window.addEventListener('drop', onDrop)\n    return () => {\n      window.removeEventListener('dragenter', onDragEnter)\n      window.removeEventListener('dragover', onDragOver)\n      window.removeEventListener('dragleave', onDragLeave)\n      window.removeEventListener('drop', onDrop)\n    }\n  }, [ingestDataTransfer])\n\n  const onPick = useCallback(\n    (e: React.ChangeEvent<HTMLInputElement>) => {\n      if (e.target.files && e.target.files.length > 0) void ingestFileList(e.target.files)\n      e.target.value = ''\n    },\n    [ingestFileList],\n  )\n\n  const busy = phase.kind === 'reading' || phase.kind === 'building'\n\n  return (\n    <div className={`dz${dragging ? ' is-dragging' : ''}`}>\n      <div className=\"dz-plate sheet\">\n        <p className=\"dz-eyebrow\">Markdown Visualiser</p>\n        <h1 className=\"dz-title\">Drop a folder of markdown.</h1>\n        <p className=\"dz-lede\">\n          It is ordered, cross-linked and typeset into a single reading edition.\n          Nothing is uploaded — every file stays in this browser.\n        </p>\n\n        <div className=\"dz-actions\">\n          <button\n            type=\"button\"\n            className=\"dz-button\"\n            onClick={() => inputRef.current?.click()}\n            disabled={busy}\n          >\n            {busy ? 'Reading…' : 'Choose a folder'}\n          </button>\n          <span className=\"dz-hint\">or drop it anywhere on this page</span>\n        </div>\n\n        <input\n          ref={inputRef}\n          type=\"file\"\n          className=\"visually-hidden\"\n          multiple\n          accept=\".md,.markdown,.mdown,.mkd,image/*\"\n          // Non-standard attributes; the only way to offer a folder picker.\n          {...{ webkitdirectory: '', directory: '' }}\n          onChange={onPick}\n          tabIndex={-1}\n          aria-hidden=\"true\"\n        />\n\n        <p className=\"dz-status\" role=\"status\" aria-live=\"polite\">\n          {phase.kind === 'reading' && `Reading ${phase.count} files…`}\n          {phase.kind === 'building' && 'Building the index…'}\n        </p>\n\n        {phase.kind === 'error' && (\n          <p className=\"dz-error\" role=\"alert\">\n            {phase.message}\n          </p>\n        )}\n\n        <dl className=\"dz-supports\">\n          <div><dt>Structure</dt><dd>Nested folders, frontmatter order, cross-links</dd></div>\n          <div><dt>Content</dt><dd>GFM, callouts, math, diagrams, code</dd></div>\n          <div><dt>Repair</dt><dd>Heading levels and list nesting, reported not silent</dd></div>\n          <div><dt>Export</dt><dd>Print-quality PDF, or one portable HTML file</dd></div>\n        </dl>\n      </div>\n\n      <div className=\"dz-veil\" aria-hidden=\"true\">\n        <span>Release to open</span>\n      </div>\n    </div>\n  )\n}"
+  },
+  {
+    "type": "type",
+    "name": "LinkTarget",
+    "file_path": "src/ingest/links.ts",
+    "start_line": 13,
+    "end_line": 17,
+    "content": "export type LinkTarget =\n  | { readonly kind: 'internal'; readonly docId: string; readonly hash: string | null }\n  | { readonly kind: 'external'; readonly href: string }\n  | { readonly kind: 'anchor'; readonly hash: string }\n  | { readonly kind: 'missing'; readonly href: string }"
+  },
+  {
+    "type": "const",
+    "name": "EXTERNAL_SCHEME",
+    "file_path": "src/ingest/links.ts",
+    "start_line": 19,
+    "end_line": 19,
+    "content": "const EXTERNAL_SCHEME = /^[a-z][a-z0-9+.-]*:/i"
+  },
+  {
+    "type": "function",
+    "name": "buildDocIndex",
+    "file_path": "src/ingest/links.ts",
+    "start_line": 22,
+    "end_line": 55,
+    "content": "export function buildDocIndex(docs: readonly MarkdownDoc[]): Map<string, string> {\n  const index = new Map<string, string>()\n  const ambiguous = new Set<string>()\n\n  const add = (key: string, docId: string) => {\n    const normalised = normaliseAssetPath(key)\n    if (normalised === '') return\n    const existing = index.get(normalised)\n    if (existing !== undefined && existing !== docId) {\n      ambiguous.add(normalised)\n      return\n    }\n    index.set(normalised, docId)\n  }\n\n  for (const doc of docs) {\n    add(doc.path, doc.id)\n    // Links are commonly written without the extension, and directory links\n    // (`../guide/`) are expected to land on that directory's index file.\n    add(doc.path.replace(/\\.(md|markdown|mdown|mkd)$/i, ''), doc.id)\n  }\n\n  for (const doc of docs) {\n    const base = doc.filename.replace(/\\.(md|markdown|mdown|mkd)$/i, '')\n    if (['readme', 'index'].includes(base.toLowerCase())) {\n      add(doc.dir === '' ? '.' : doc.dir, doc.id)\n    }\n  }\n\n  // A key that matched two different documents cannot be resolved safely.\n  for (const key of ambiguous) index.delete(key)\n\n  return index\n}"
+  },
+  {
+    "type": "function",
+    "name": "resolveLink",
+    "file_path": "src/ingest/links.ts",
+    "start_line": 64,
+    "end_line": 101,
+    "content": "export function resolveLink(\n  href: string,\n  fromDoc: MarkdownDoc,\n  docIndex: ReadonlyMap<string, string>,\n): LinkTarget {\n  const trimmed = href.trim()\n\n  if (trimmed === '') return { kind: 'external', href }\n  if (trimmed.startsWith('#')) return { kind: 'anchor', hash: trimmed.slice(1) }\n  if (EXTERNAL_SCHEME.test(trimmed)) return { kind: 'external', href: trimmed }\n  if (trimmed.startsWith('//')) return { kind: 'external', href: trimmed }\n\n  const hashAt = trimmed.indexOf('#')\n  const pathPart = hashAt === -1 ? trimmed : trimmed.slice(0, hashAt)\n  const hash = hashAt === -1 ? null : trimmed.slice(hashAt + 1)\n\n  if (pathPart === '') {\n    return hash === null ? { kind: 'external', href } : { kind: 'anchor', hash }\n  }\n\n  const resolved = resolveRelative(fromDoc.path, pathPart)\n\n  const direct = docIndex.get(resolved)\n  if (direct !== undefined) return { kind: 'internal', docId: direct, hash }\n\n  const withoutExt = docIndex.get(resolved.replace(/\\.(md|markdown|mdown|mkd)$/i, ''))\n  if (withoutExt !== undefined) return { kind: 'internal', docId: withoutExt, hash }\n\n  const asDir = docIndex.get(resolved.replace(/\\/$/, ''))\n  if (asDir !== undefined) return { kind: 'internal', docId: asDir, hash }\n\n  // Looks like a document reference but resolves to nothing in this set.\n  if (/\\.(md|markdown|mdown|mkd)$/i.test(pathPart)) {\n    return { kind: 'missing', href: trimmed }\n  }\n\n  return { kind: 'external', href: trimmed }\n}"
+  },
+  {
+    "type": "function",
+    "name": "makeLinkResolver",
+    "file_path": "src/ingest/links.ts",
+    "start_line": 104,
+    "end_line": 108,
+    "content": "export function makeLinkResolver(set: DocumentSet) {\n  const index = buildDocIndex(set.docs)\n  return (href: string, fromDoc: MarkdownDoc): LinkTarget =>\n    resolveLink(href, fromDoc, index)\n}"
+  },
+  {
+    "type": "const",
+    "name": "INDEX_NAMES",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 16,
+    "end_line": 19,
+    "content": "const INDEX_NAMES = new Set([\n  'readme', 'index', 'introduction', 'intro', 'overview', 'start',\n  'getting-started', 'home', '00', '_index', 'summary',\n])"
+  },
+  {
+    "type": "function",
+    "name": "pad",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 22,
+    "end_line": 23,
+    "content": "const pad = (n: number, width = 8) =>\n  Math.max(0, Math.floor(n)).toString().padStart(width, '0')"
+  },
+  {
+    "type": "function",
+    "name": "numericPrefix",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 26,
+    "end_line": 30,
+    "content": "export function numericPrefix(filename: string): number | null {\n  const match = /^(\\d{1,6})[\\s._-]/.exec(filename)\n  if (!match?.[1]) return null\n  return Number.parseInt(match[1], 10)\n}"
+  },
+  {
+    "type": "function",
+    "name": "stem",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 33,
+    "end_line": 36,
+    "content": "export function stem(filename: string): string {\n  const dot = filename.lastIndexOf('.')\n  return (dot > 0 ? filename.slice(0, dot) : filename).toLowerCase()\n}"
+  },
+  {
+    "type": "function",
+    "name": "naturalKey",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 42,
+    "end_line": 46,
+    "content": "export function naturalKey(value: string): string {\n  return value\n    .toLowerCase()\n    .replace(/\\d+/g, (digits) => pad(Number.parseInt(digits, 10)))\n}"
+  },
+  {
+    "type": "function",
+    "name": "directoryKey",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 53,
+    "end_line": 57,
+    "content": "function directoryKey(dir: string): string {\n  if (dir === '') return `${pad(0, 3)}.`\n  const segments = dir.split('/')\n  return `${pad(segments.length, 3)}.${segments.map(naturalKey).join('/')}`\n}"
+  },
+  {
+    "type": "interface",
+    "name": "OrderableDoc",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 59,
+    "end_line": 64,
+    "content": "export interface OrderableDoc {\n  /** POSIX relative path from the drop root. */\n  readonly path: string\n  /** Explicit `order` from YAML frontmatter, when present and numeric. */\n  readonly order: number | null\n}"
+  },
+  {
+    "type": "function",
+    "name": "computeSortKey",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 80,
+    "end_line": 93,
+    "content": "export function computeSortKey(doc: OrderableDoc): string {\n  const slash = doc.path.lastIndexOf('/')\n  const dir = slash === -1 ? '' : doc.path.slice(0, slash)\n  const filename = slash === -1 ? doc.path : doc.path.slice(slash + 1)\n  const base = stem(filename)\n\n  // Absent values sort last within their rank, never first.\n  const explicit = doc.order === null ? pad(Number.MAX_SAFE_INTEGER) : pad(doc.order)\n  const prefix = numericPrefix(filename)\n  const numeric = prefix === null ? pad(Number.MAX_SAFE_INTEGER) : pad(prefix)\n  const indexRank = INDEX_NAMES.has(base) ? '0' : '1'\n\n  return [directoryKey(dir), explicit, indexRank, numeric, naturalKey(base)].join('.')\n}"
+  },
+  {
+    "type": "function",
+    "name": "sortByReadingOrder",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 96,
+    "end_line": 102,
+    "content": "export function sortByReadingOrder<T extends { sortKey: string; path: string }>(\n  docs: readonly T[],\n): T[] {\n  return [...docs].sort(\n    (a, b) => a.sortKey.localeCompare(b.sortKey) || a.path.localeCompare(b.path),\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "prettifyFilename",
+    "file_path": "src/ingest/ordering.ts",
+    "start_line": 105,
+    "end_line": 110,
+    "content": "export function prettifyFilename(filename: string): string {\n  const base = stem(filename).replace(/^\\d{1,6}[\\s._-]+/, '')\n  const words = base.replace(/[-_.]+/g, ' ').trim()\n  if (words === '') return stem(filename)\n  return words.replace(/\\b[a-z]/g, (c) => c.toUpperCase())\n}"
+  },
+  {
+    "type": "interface",
+    "name": "WalkedFile",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 11,
+    "end_line": 15,
+    "content": "export interface WalkedFile {\n  /** POSIX relative path from the drop root, e.g. `guide/img/diagram.png`. */\n  readonly path: string\n  readonly file: File\n}"
+  },
+  {
+    "type": "interface",
+    "name": "WalkOptions",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 17,
+    "end_line": 22,
+    "content": "export interface WalkOptions {\n  /** Abort once this many files have been collected. */\n  readonly maxFiles: number\n  /** Called as entries are discovered, for progress reporting. */\n  readonly onProgress?: (count: number) => void\n}"
+  },
+  {
+    "type": "const",
+    "name": "IGNORED_DIRS",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 25,
+    "end_line": 28,
+    "content": "const IGNORED_DIRS = new Set([\n  '.git', '.svn', '.hg', 'node_modules', '.next', '.nuxt', 'dist', 'build',\n  '.cache', '.idea', '.vscode', '__pycache__', '.venv', 'venv', '.DS_Store',\n])"
+  },
+  {
+    "type": "function",
+    "name": "isIgnoredName",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 30,
+    "end_line": 31,
+    "content": "const isIgnoredName = (name: string) =>\n  IGNORED_DIRS.has(name) || name === '.DS_Store' || name === 'Thumbs.db'"
+  },
+  {
+    "type": "function",
+    "name": "readAllEntries",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 40,
+    "end_line": 57,
+    "content": "function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {\n  return new Promise((resolve, reject) => {\n    const all: FileSystemEntry[] = []\n\n    const readBatch = () => {\n      reader.readEntries((batch) => {\n        if (batch.length === 0) {\n          resolve(all)\n          return\n        }\n        all.push(...batch)\n        readBatch()\n      }, reject)\n    }\n\n    readBatch()\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "entryToFile",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 59,
+    "end_line": 60,
+    "content": "const entryToFile = (entry: FileSystemFileEntry): Promise<File> =>\n  new Promise((resolve, reject) => entry.file(resolve, reject))"
+  },
+  {
+    "type": "function",
+    "name": "walkEntry",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 62,
+    "end_line": 92,
+    "content": "async function walkEntry(\n  entry: FileSystemEntry,\n  prefix: string,\n  out: WalkedFile[],\n  opts: WalkOptions,\n): Promise<void> {\n  if (out.length >= opts.maxFiles) return\n  if (isIgnoredName(entry.name)) return\n\n  const path = prefix ? `${prefix}/${entry.name}` : entry.name\n\n  if (entry.isFile) {\n    try {\n      out.push({ path, file: await entryToFile(entry as FileSystemFileEntry) })\n      opts.onProgress?.(out.length)\n    } catch {\n      // A single unreadable file must not abort the whole import. It is\n      // simply absent; docset.ts reports what it expected but did not get.\n    }\n    return\n  }\n\n  if (entry.isDirectory) {\n    const dir = entry as FileSystemDirectoryEntry\n    const children = await readAllEntries(dir.createReader())\n    for (const child of children) {\n      await walkEntry(child, path, out, opts)\n      if (out.length >= opts.maxFiles) return\n    }\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "walkDataTransfer",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 98,
+    "end_line": 133,
+    "content": "export async function walkDataTransfer(\n  dt: DataTransfer,\n  opts: WalkOptions,\n): Promise<WalkedFile[]> {\n  const out: WalkedFile[] = []\n\n  // The DataTransferItemList is emptied when the drop event handler returns,\n  // so entries must be captured synchronously before the first await.\n  const entries: (FileSystemEntry | null)[] = []\n  const looseFiles: File[] = []\n\n  for (const item of Array.from(dt.items)) {\n    if (item.kind !== 'file') continue\n    const entry = item.webkitGetAsEntry?.() ?? null\n    if (entry) {\n      entries.push(entry)\n    } else {\n      // Browsers without the entry API still give us flat files.\n      const file = item.getAsFile()\n      if (file) looseFiles.push(file)\n    }\n  }\n\n  for (const entry of entries) {\n    if (entry) await walkEntry(entry, '', out, opts)\n  }\n\n  for (const file of looseFiles) {\n    if (out.length >= opts.maxFiles) break\n    if (isIgnoredName(file.name)) continue\n    out.push({ path: file.name, file })\n    opts.onProgress?.(out.length)\n  }\n\n  return out\n}"
+  },
+  {
+    "type": "function",
+    "name": "walkFileList",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 136,
+    "end_line": 148,
+    "content": "export function walkFileList(files: FileList, opts: WalkOptions): WalkedFile[] {\n  const out: WalkedFile[] = []\n  for (const file of Array.from(files)) {\n    if (out.length >= opts.maxFiles) break\n    // webkitRelativePath is populated for directory pickers, empty otherwise.\n    const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath\n    const path = rel && rel.length > 0 ? rel : file.name\n    if (path.split('/').some(isIgnoredName)) continue\n    out.push({ path, file })\n    opts.onProgress?.(out.length)\n  }\n  return out\n}"
+  },
+  {
+    "type": "function",
+    "name": "stripCommonRoot",
+    "file_path": "src/ingest/walker.ts",
+    "start_line": 155,
+    "end_line": 177,
+    "content": "export function stripCommonRoot(files: readonly WalkedFile[]): {\n  rootName: string\n  files: WalkedFile[]\n} {\n  if (files.length === 0) return { rootName: 'Documents', files: [] }\n\n  const firstSegments = new Set(\n    files.map((f) => (f.path.includes('/') ? f.path.slice(0, f.path.indexOf('/')) : null)),\n  )\n\n  // Only strip when every file shares one real directory prefix.\n  if (firstSegments.size === 1) {\n    const root = [...firstSegments][0]\n    if (root) {\n      return {\n        rootName: root,\n        files: files.map((f) => ({ ...f, path: f.path.slice(root.length + 1) })),\n      }\n    }\n  }\n\n  return { rootName: 'Documents', files: [...files] }\n}"
+  },
+  {
+    "type": "const",
+    "name": "host",
+    "file_path": "src/main.tsx",
+    "start_line": 19,
+    "end_line": 19,
+    "content": "const host = document.getElementById('root')"
+  },
+  {
+    "type": "const",
+    "name": "SAFE_DATA_IMAGE",
+    "file_path": "src/pipeline/plugins/rehype-assets.ts",
+    "start_line": 19,
+    "end_line": 19,
+    "content": "const SAFE_DATA_IMAGE = /^data:image\\/(?:png|jpeg|jpg|gif|webp|avif|bmp);/i"
+  },
+  {
+    "type": "interface",
+    "name": "AssetOptions",
+    "file_path": "src/pipeline/plugins/rehype-assets.ts",
+    "start_line": 21,
+    "end_line": 25,
+    "content": "interface AssetOptions {\n  readonly doc: MarkdownDoc\n  readonly assets: ReadonlyMap<string, AssetRef>\n  readonly resolveLink: (href: string, doc: MarkdownDoc) => LinkTarget\n}"
+  },
+  {
+    "type": "function",
+    "name": "figureFor",
+    "file_path": "src/pipeline/plugins/rehype-assets.ts",
+    "start_line": 28,
+    "end_line": 47,
+    "content": "function figureFor(img: Element, caption: string): Element {\n  return {\n    type: 'element',\n    tagName: 'figure',\n    properties: { className: ['figure'] },\n    children: [\n      img,\n      ...(caption === ''\n        ? []\n        : [\n            {\n              type: 'element' as const,\n              tagName: 'figcaption',\n              properties: {},\n              children: [{ type: 'text' as const, value: caption }],\n            },\n          ]),\n    ],\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "missingAsset",
+    "file_path": "src/pipeline/plugins/rehype-assets.ts",
+    "start_line": 50,
+    "end_line": 60,
+    "content": "function missingAsset(path: string): Element {\n  return {\n    type: 'element',\n    tagName: 'div',\n    properties: { className: ['asset-missing'] },\n    children: [\n      { type: 'element', tagName: 'span', properties: {}, children: [{ type: 'text', value: 'Image not found' }] },\n      { type: 'element', tagName: 'code', properties: {}, children: [{ type: 'text', value: path }] },\n    ],\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "rehypeAssets",
+    "file_path": "src/pipeline/plugins/rehype-assets.ts",
+    "start_line": 62,
+    "end_line": 146,
+    "content": "export const rehypeAssets: Plugin<[AssetOptions], Root> = (opts) => (tree: Root) => {\n  // Images -----------------------------------------------------------------\n  visit(tree, 'element', (node: Element, index, parent) => {\n    if (node.tagName !== 'img' || index === undefined || !parent) return\n\n    const src = node.properties?.['src']\n    if (typeof src !== 'string' || src === '') return\n\n    const alt = typeof node.properties?.['alt'] === 'string' ? node.properties['alt'] : ''\n\n    // Absolute URLs are the author's choice; leave them alone. Data URIs are\n    // narrowed to raster image types here as well as in the sanitize schema -\n    // this plugin runs past the trust boundary, so it must not be capable of\n    // reintroducing something the sanitizer would have rejected.\n    if (/^(?:https?:|blob:)/i.test(src) || SAFE_DATA_IMAGE.test(src)) {\n      parent.children[index] = figureFor(node, alt)\n      return\n    }\n\n    if (/^data:/i.test(src)) {\n      // A data URI that is not a raster image has no business in an <img>.\n      parent.children[index] = missingAsset('unsupported inline image')\n      return\n    }\n\n    const asset = lookupAsset(opts.assets, opts.doc.path, src)\n    if (!asset) {\n      parent.children[index] = missingAsset(src)\n      return\n    }\n\n    node.properties = {\n      ...node.properties,\n      src: asset.url,\n      loading: 'lazy',\n      decoding: 'async',\n    }\n    parent.children[index] = figureFor(node, alt)\n  })\n\n  // Links ------------------------------------------------------------------\n  visit(tree, 'element', (node: Element) => {\n    if (node.tagName !== 'a') return\n\n    const href = node.properties?.['href']\n    if (typeof href !== 'string' || href === '') return\n\n    const target = opts.resolveLink(href, opts.doc)\n\n    switch (target.kind) {\n      case 'internal':\n        node.properties = {\n          ...node.properties,\n          href: `#${target.docId}${target.hash ? `-${target.hash}` : ''}`,\n          'data-doc': target.docId,\n          ...(target.hash ? { 'data-hash': target.hash } : {}),\n        }\n        break\n\n      case 'anchor':\n        node.properties = { ...node.properties, href: `#${target.hash}` }\n        break\n\n      case 'missing':\n        node.properties = {\n          ...node.properties,\n          href: undefined,\n          className: ['link-missing'],\n          title: `Not found in this set: ${String(target.href)}`,\n          'aria-disabled': 'true',\n        }\n        break\n\n      case 'external':\n        // Opening in a new tab needs noopener, or the target page gets a\n        // handle on this window.\n        node.properties = {\n          ...node.properties,\n          target: '_blank',\n          rel: ['noopener', 'noreferrer'],\n        }\n        break\n    }\n  })\n}"
+  },
+  {
+    "type": "interface",
+    "name": "MermaidOptions",
+    "file_path": "src/pipeline/plugins/rehype-mermaid.ts",
+    "start_line": 22,
+    "end_line": 25,
+    "content": "interface MermaidOptions {\n  /** Extracted blocks are pushed here; the caller owns the array. */\n  readonly sink: MermaidBlock[]\n}"
+  },
+  {
+    "type": "function",
+    "name": "hashSource",
+    "file_path": "src/pipeline/plugins/rehype-mermaid.ts",
+    "start_line": 28,
+    "end_line": 35,
+    "content": "function hashSource(source: string): string {\n  let hash = 0x811c9dc5\n  for (let i = 0; i < source.length; i++) {\n    hash ^= source.charCodeAt(i)\n    hash = Math.imul(hash, 0x01000193) >>> 0\n  }\n  return hash.toString(36)\n}"
+  },
+  {
+    "type": "function",
+    "name": "isMermaidCode",
+    "file_path": "src/pipeline/plugins/rehype-mermaid.ts",
+    "start_line": 37,
+    "end_line": 43,
+    "content": "const isMermaidCode = (node: Element): boolean => {\n  const classes = node.properties?.['className']\n  return (\n    Array.isArray(classes) &&\n    classes.some((cls) => typeof cls === 'string' && cls === 'language-mermaid')\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "rehypeMermaid",
+    "file_path": "src/pipeline/plugins/rehype-mermaid.ts",
+    "start_line": 45,
+    "end_line": 96,
+    "content": "export const rehypeMermaid: Plugin<[MermaidOptions], Root> = ({ sink }) =>\n  (tree: Root) => {\n    visit(tree, 'element', (node: Element, index, parent) => {\n      if (node.tagName !== 'pre' || index === undefined || !parent) return\n\n      const code = node.children.find(\n        (child): child is Element => child.type === 'element' && child.tagName === 'code',\n      )\n      if (!code || !isMermaidCode(code)) return\n\n      const source = hastToString(code).trim()\n      if (source === '') return\n\n      // Two identical diagrams in one document share an id, which is correct:\n      // identical source produces identical output and Mermaid's cache is a\n      // help rather than a hazard in that case.\n      const id = `mmd-${hashSource(source)}`\n      if (!sink.some((block) => block.id === id)) sink.push({ id, code: source })\n\n      const placeholder: Element = {\n        type: 'element',\n        tagName: 'figure',\n        properties: {\n          className: ['mermaid-figure'],\n          id,\n          // The source travels with the element so the export path can\n          // recover it without consulting the render result.\n          'data-mermaid': id,\n        },\n        children: [\n          {\n            type: 'element',\n            tagName: 'div',\n            properties: { className: ['mermaid-slot'] },\n            children: [\n              // Fallback content: if the diagram never renders - Mermaid failed\n              // to load, or the syntax is invalid - the reader still sees the\n              // source rather than an empty gap.\n              {\n                type: 'element',\n                tagName: 'pre',\n                properties: { className: ['mermaid-source'] },\n                children: [{ type: 'text', value: source }],\n              },\n            ],\n          },\n        ],\n      }\n\n      parent.children[index] = placeholder\n    })\n  }"
+  },
+  {
+    "type": "const",
+    "name": "THEMES",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 22,
+    "end_line": 22,
+    "content": "export const THEMES = { light: 'github-light', dark: 'github-dark' } as const"
+  },
+  {
+    "type": "const",
+    "name": "highlighterPromise",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 24,
+    "end_line": 24,
+    "content": "let highlighterPromise: Promise<HighlighterCore> | null = null"
+  },
+  {
+    "type": "function",
+    "name": "getHighlighter",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 33,
+    "end_line": 51,
+    "content": "export function getHighlighter(): Promise<HighlighterCore> {\n  highlighterPromise ??= (async () => {\n    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }] = await Promise.all([\n      import('shiki/core'),\n      import('shiki/engine/javascript'),\n    ])\n\n    return createHighlighterCore({\n      themes: [\n        import('shiki/themes/github-light.mjs'),\n        import('shiki/themes/github-dark.mjs'),\n      ],\n      langs: EAGER_LANGUAGES.map((lang) => LANG_LOADERS[lang]!()),\n      engine: createJavaScriptRegexEngine({ forgiving: true }),\n    })\n  })()\n\n  return highlighterPromise\n}"
+  },
+  {
+    "type": "function",
+    "name": "fenceLabel",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 54,
+    "end_line": 62,
+    "content": "function fenceLabel(node: Element): string | null {\n  const classes = node.properties?.['className']\n  if (!Array.isArray(classes)) return null\n  for (const cls of classes) {\n    if (typeof cls !== 'string') continue\n    if (cls.startsWith('language-')) return cls.slice('language-'.length).toLowerCase()\n  }\n  return null\n}"
+  },
+  {
+    "type": "function",
+    "name": "collectLanguages",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 65,
+    "end_line": 76,
+    "content": "export function collectLanguages(tree: Root): string[] {\n  const found = new Set<string>()\n  visit(tree, 'element', (node: Element, _i, parent) => {\n    if (node.tagName !== 'code') return\n    if ((parent as Element | undefined)?.tagName !== 'pre') return\n    const label = fenceLabel(node)\n    if (label === null || label === 'mermaid') return\n    const canonical = resolveLanguage(label)\n    if (canonical !== null) found.add(canonical)\n  })\n  return [...found]\n}"
+  },
+  {
+    "type": "function",
+    "name": "ensureLanguages",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 85,
+    "end_line": 102,
+    "content": "export async function ensureLanguages(\n  highlighter: HighlighterCore,\n  languages: readonly string[],\n): Promise<void> {\n  const loaded = new Set(highlighter.getLoadedLanguages())\n  const missing = languages.filter((lang) => !loaded.has(lang) && lang in LANG_LOADERS)\n\n  await Promise.all(\n    missing.map(async (lang) => {\n      try {\n        await highlighter.loadLanguage((await LANG_LOADERS[lang]!()) as never)\n      } catch {\n        // A grammar that fails to load leaves its block unhighlighted, which\n        // is a cosmetic loss rather than a broken document.\n      }\n    }),\n  )\n}"
+  },
+  {
+    "type": "interface",
+    "name": "ShikiOptions",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 104,
+    "end_line": 106,
+    "content": "interface ShikiOptions {\n  readonly highlighter: HighlighterCore\n}"
+  },
+  {
+    "type": "function",
+    "name": "rehypeShiki",
+    "file_path": "src/pipeline/plugins/rehype-shiki.ts",
+    "start_line": 113,
+    "end_line": 148,
+    "content": "export const rehypeShiki: Plugin<[ShikiOptions], Root> = ({ highlighter }) =>\n  (tree: Root) => {\n    const loaded = new Set(highlighter.getLoadedLanguages())\n\n    visit(tree, 'element', (node: Element, index, parent) => {\n      if (node.tagName !== 'pre') return\n      const code = node.children.find(\n        (child): child is Element => child.type === 'element' && child.tagName === 'code',\n      )\n      if (!code || index === undefined || !parent) return\n\n      const label = fenceLabel(code)\n      if (label === null || label === 'mermaid') return\n\n      const lang = resolveLanguage(label)\n      if (lang === null || !loaded.has(lang)) return\n\n      try {\n        const html = highlighter.codeToHtml(hastToString(code), {\n          lang,\n          themes: THEMES,\n          // CSS variables rather than two full colour sets, so the\n          // stylesheet decides which theme applies.\n          defaultColor: false,\n          cssVariablePrefix: '--shiki-',\n        })\n\n        // codeToHtml returns a complete <pre>; splice it in as raw HTML. This\n        // is past the trust boundary and is our own generated output.\n        parent.children[index] = { type: 'raw', value: html } as unknown as Element\n      } catch {\n        // Highlighting is decoration. A grammar that throws leaves the\n        // original block in place rather than losing the code.\n      }\n    })\n  }"
+  },
+  {
+    "type": "interface",
+    "name": "RepairResult",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 23,
+    "end_line": 25,
+    "content": "export interface RepairResult {\n  readonly notes: RepairNote[]\n}"
+  },
+  {
+    "type": "interface",
+    "name": "RepairOptions",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 27,
+    "end_line": 35,
+    "content": "interface RepairOptions {\n  /** Collected notes are pushed here; the caller owns the array. */\n  readonly sink: RepairNote[]\n  /**\n   * The document title as resolved by ingest, which the reader already shows\n   * in its own title block. A leading H1 repeating it is printed twice.\n   */\n  readonly title?: string\n}"
+  },
+  {
+    "type": "function",
+    "name": "normaliseTitle",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 38,
+    "end_line": 44,
+    "content": "const normaliseTitle = (value: string): string =>\n  value\n    .toLowerCase()\n    // Punctuation collapses to a space, so it must be trimmed *after* the\n    // substitution: \"api reference!\" would otherwise keep a trailing space.\n    .replace(/[\\s\\p{P}]+/gu, ' ')\n    .trim()"
+  },
+  {
+    "type": "function",
+    "name": "sameTitle",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 46,
+    "end_line": 47,
+    "content": "const sameTitle = (a: string, b: string): boolean =>\n  normaliseTitle(a) === normaliseTitle(b)"
+  },
+  {
+    "type": "function",
+    "name": "dropRedundantTitle",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 56,
+    "end_line": 76,
+    "content": "function dropRedundantTitle(tree: Root, opts: RepairOptions): void {\n  if (opts.title === undefined) return\n\n  // Skip the frontmatter node, which is the document's first child when\n  // present. Only 'yaml' is enabled on remark-frontmatter in this pipeline.\n  const index = tree.children.findIndex((node) => node.type !== 'yaml')\n  const first = index === -1 ? undefined : tree.children[index]\n  if (!first || first.type !== 'heading' || first.depth !== 1) return\n\n  const text = mdastToString(first)\n  if (!sameTitle(text, opts.title)) return\n\n  tree.children.splice(index, 1)\n  opts.sink.push({\n    rule: 'duplicate-h1',\n    line: lineOf(first),\n    before: `h1: ${text}`,\n    after: 'shown once, in the document header',\n    detail: 'This heading repeated the document title, so it was not printed twice.',\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "lineOf",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 78,
+    "end_line": 78,
+    "content": "const lineOf = (node: Node): number | null => node.position?.start.line ?? null"
+  },
+  {
+    "type": "function",
+    "name": "repairHeadings",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 95,
+    "end_line": 178,
+    "content": "function repairHeadings(tree: Root, opts: RepairOptions): void {\n  const headings: Heading[] = []\n  visit(tree, 'heading', (node: Heading) => {\n    headings.push(node)\n  })\n  if (headings.length === 0) return\n\n  /** Input depths already seen, mapped to the depth we emitted for them. */\n  const stack: { input: number; output: number }[] = []\n  let seenH1 = false\n\n  for (const node of headings) {\n    const input = node.depth\n    const text = mdastToString(node)\n\n    // Drop entries deeper than or equal to this heading: they are siblings\n    // or children of a section this heading now closes.\n    while (stack.length > 0 && stack[stack.length - 1]!.input >= input) stack.pop()\n\n    const parent = stack[stack.length - 1]\n    let output: number\n\n    if (input === 1) {\n      if (!seenH1) {\n        seenH1 = true\n        output = 1\n      } else {\n        // A second competing title. Demote it under the first.\n        output = 2\n        opts.sink.push({\n          rule: 'duplicate-h1',\n          line: lineOf(node),\n          before: `h1: ${text}`,\n          after: `h2: ${text}`,\n          detail:\n            'The document already had a top-level heading, so this one was ' +\n            'demoted to keep a single title.',\n        })\n      }\n    } else if (!parent) {\n      // A heading deeper than h1 with no ancestor - e.g. a file that opens\n      // on an h3. Promote it to the top level of its own hierarchy.\n      output = seenH1 ? 2 : 1\n      if (output !== input) {\n        opts.sink.push({\n          rule: 'heading-skip',\n          line: lineOf(node),\n          before: `h${input}: ${text}`,\n          after: `h${output}: ${text}`,\n          detail: 'This heading had no parent section, so it was promoted.',\n        })\n      }\n    } else {\n      // Exactly one level below the parent's *output* depth, not its input\n      // depth. Deriving from the output is what makes a demoted section carry\n      // its whole subtree down with it: if `# B` became an h2, then `## B1`\n      // beneath it must become an h3, or B1 ends up a sibling of the section\n      // it belongs to and the index shows a structure the document does not\n      // have. The stack has already popped everything at or below this\n      // heading's input depth, so the parent is always genuinely shallower.\n      output = parent.output + 1\n      if (output !== input) {\n        opts.sink.push({\n          rule: 'heading-skip',\n          line: lineOf(node),\n          before: `h${input}: ${text}`,\n          after: `h${output}: ${text}`,\n          detail:\n            output < input\n              ? `Jumped from h${parent.output} to h${input}, skipping a level.`\n              : 'Shifted to stay beneath its parent section, which moved.',\n        })\n      }\n    }\n\n    node.depth = Math.min(6, Math.max(1, output)) as Heading['depth']\n    // Any heading that ends up at depth 1 is the document's title, however it\n    // got there. Tracking this only in the `input === 1` branch left a\n    // *promoted* heading unrecorded, so a later genuine h1 was not demoted and\n    // the document rendered with two competing titles.\n    if (node.depth === 1) seenH1 = true\n    stack.push({ input, output: node.depth })\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "repairLists",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 188,
+    "end_line": 210,
+    "content": "function repairLists(tree: Root, opts: RepairOptions): void {\n  visit(tree, 'list', (node: List) => {\n    const items = node.children\n    if (items.length < 2) return\n\n    const spreadCount = items.filter((item) => item.spread === true).length\n    const dominant = spreadCount > items.length / 2\n\n    const inconsistent = items.some((item) => (item.spread === true) !== dominant)\n    if (!inconsistent) return\n\n    for (const item of items) item.spread = dominant\n    node.spread = dominant\n\n    opts.sink.push({\n      rule: 'mixed-markers',\n      line: lineOf(node),\n      before: `${spreadCount} of ${items.length} items spaced apart`,\n      after: dominant ? 'all items spaced apart' : 'all items tight',\n      detail: 'List items disagreed about spacing, which broke the rhythm.',\n    })\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "repairListNesting",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 220,
+    "end_line": 239,
+    "content": "function repairListNesting(tree: Root, opts: RepairOptions): void {\n  visit(tree, 'listItem', (item) => {\n    const kids = item.children\n    // A list item whose only child is a list has lost its own text content to\n    // an indentation mistake; unwrap it so the levels line up.\n    if (kids.length === 1 && kids[0]?.type === 'list') {\n      const inner = kids[0] as List\n      if (inner.children.length > 0) {\n        item.children = inner.children.flatMap((child) => child.children)\n        opts.sink.push({\n          rule: 'list-nesting',\n          line: lineOf(item),\n          before: 'list item containing only a nested list',\n          after: 'nested items lifted to this level',\n          detail: 'Indentation created an empty level of nesting.',\n        })\n      }\n    }\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "reportUnbalancedEmphasis",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 248,
+    "end_line": 262,
+    "content": "function reportUnbalancedEmphasis(tree: Root, opts: RepairOptions): void {\n  visit(tree, 'text', (node) => {\n    const stray = /(\\*\\*|__)(?![\\s\\S]*\\1)/.exec(node.value)\n    if (!stray) return\n    opts.sink.push({\n      rule: 'unbalanced-emphasis',\n      line: lineOf(node),\n      before: node.value.slice(0, 60),\n      after: 'rendered literally',\n      detail:\n        `An unclosed ${stray[1]} was left as text. It was probably meant to ` +\n        'be bold.',\n    })\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "remarkRepair",
+    "file_path": "src/pipeline/plugins/remark-repair.ts",
+    "start_line": 270,
+    "end_line": 280,
+    "content": "export const remarkRepair: Plugin<[RepairOptions], Root> = (opts) => (tree: Root) => {\n  // Order matters: emphasis is reported against the original text, while\n  // headings and lists rewrite structure.\n  reportUnbalancedEmphasis(tree, opts)\n  // Before repairHeadings, so the hierarchy is normalised against what will\n  // actually be rendered rather than against a heading about to be removed.\n  dropRedundantTitle(tree, opts)\n  repairHeadings(tree, opts)\n  repairListNesting(tree, opts)\n  repairLists(tree, opts)\n}"
+  },
+  {
+    "type": "type",
+    "name": "LangLoader",
+    "file_path": "src/pipeline/plugins/shiki-langs.ts",
+    "start_line": 22,
+    "end_line": 22,
+    "content": "export type LangLoader = () => Promise<{ default: LanguageRegistration[] }>"
+  },
+  {
+    "type": "const",
+    "name": "LANG_LOADERS",
+    "file_path": "src/pipeline/plugins/shiki-langs.ts",
+    "start_line": 23,
+    "end_line": 59,
+    "content": "export const LANG_LOADERS: Readonly<Record<string, LangLoader>> = {\n  bash: () => import('shiki/langs/bash.mjs'),\n  c: () => import('shiki/langs/c.mjs'),\n  cpp: () => import('shiki/langs/cpp.mjs'),\n  csharp: () => import('shiki/langs/csharp.mjs'),\n  css: () => import('shiki/langs/css.mjs'),\n  diff: () => import('shiki/langs/diff.mjs'),\n  docker: () => import('shiki/langs/docker.mjs'),\n  go: () => import('shiki/langs/go.mjs'),\n  graphql: () => import('shiki/langs/graphql.mjs'),\n  html: () => import('shiki/langs/html.mjs'),\n  ini: () => import('shiki/langs/ini.mjs'),\n  java: () => import('shiki/langs/java.mjs'),\n  javascript: () => import('shiki/langs/javascript.mjs'),\n  json: () => import('shiki/langs/json.mjs'),\n  jsx: () => import('shiki/langs/jsx.mjs'),\n  kotlin: () => import('shiki/langs/kotlin.mjs'),\n  lua: () => import('shiki/langs/lua.mjs'),\n  makefile: () => import('shiki/langs/makefile.mjs'),\n  markdown: () => import('shiki/langs/markdown.mjs'),\n  nginx: () => import('shiki/langs/nginx.mjs'),\n  php: () => import('shiki/langs/php.mjs'),\n  powershell: () => import('shiki/langs/powershell.mjs'),\n  python: () => import('shiki/langs/python.mjs'),\n  ruby: () => import('shiki/langs/ruby.mjs'),\n  rust: () => import('shiki/langs/rust.mjs'),\n  scala: () => import('shiki/langs/scala.mjs'),\n  shellscript: () => import('shiki/langs/shellscript.mjs'),\n  sql: () => import('shiki/langs/sql.mjs'),\n  swift: () => import('shiki/langs/swift.mjs'),\n  toml: () => import('shiki/langs/toml.mjs'),\n  tsx: () => import('shiki/langs/tsx.mjs'),\n  typescript: () => import('shiki/langs/typescript.mjs'),\n  vue: () => import('shiki/langs/vue.mjs'),\n  xml: () => import('shiki/langs/xml.mjs'),\n  yaml: () => import('shiki/langs/yaml.mjs'),\n}"
+  },
+  {
+    "type": "const",
+    "name": "ALIASES",
+    "file_path": "src/pipeline/plugins/shiki-langs.ts",
+    "start_line": 62,
+    "end_line": 83,
+    "content": "const ALIASES: Readonly<Record<string, string>> = {\n  sh: 'bash',\n  zsh: 'bash',\n  shell: 'shellscript',\n  console: 'shellscript',\n  js: 'javascript',\n  ts: 'typescript',\n  py: 'python',\n  rb: 'ruby',\n  rs: 'rust',\n  yml: 'yaml',\n  md: 'markdown',\n  'c++': 'cpp',\n  cs: 'csharp',\n  'c#': 'csharp',\n  dockerfile: 'docker',\n  htm: 'html',\n  ps1: 'powershell',\n  kt: 'kotlin',\n  conf: 'ini',\n  make: 'makefile',\n}"
+  },
+  {
+    "type": "function",
+    "name": "resolveLanguage",
+    "file_path": "src/pipeline/plugins/shiki-langs.ts",
+    "start_line": 86,
+    "end_line": 90,
+    "content": "export function resolveLanguage(label: string): string | null {\n  const lower = label.toLowerCase()\n  const canonical = ALIASES[lower] ?? lower\n  return canonical in LANG_LOADERS ? canonical : null\n}"
+  },
+  {
+    "type": "const",
+    "name": "EAGER_LANGUAGES",
+    "file_path": "src/pipeline/plugins/shiki-langs.ts",
+    "start_line": 97,
+    "end_line": 104,
+    "content": "export const EAGER_LANGUAGES = [\n  'bash',\n  'json',\n  'javascript',\n  'typescript',\n  'python',\n  'yaml',\n] as const"
+  },
+  {
+    "type": "interface",
+    "name": "RenderContext",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 57,
+    "end_line": 60,
+    "content": "export interface RenderContext {\n  readonly assets: ReadonlyMap<string, AssetRef>\n  readonly resolveLink: (href: string, doc: MarkdownDoc) => LinkTarget\n}"
+  },
+  {
+    "type": "function",
+    "name": "headingPlugin",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 63,
+    "end_line": 93,
+    "content": "function headingPlugin(sink: Heading[]) {\n  return () => (tree: HastRoot) => {\n    const slugger = new GithubSlugger()\n    const flat: Heading[] = []\n\n    visit(tree, 'element', (node: Element) => {\n      const match = /^h([1-6])$/.exec(node.tagName)\n      if (!match?.[1]) return\n\n      const text = hastToString(node).trim()\n      if (text === '') return\n\n      const existing = node.properties?.['id']\n      const id = typeof existing === 'string' && existing !== '' ? existing : slugger.slug(text)\n      node.properties = { ...node.properties, id }\n\n      flat.push({ id, depth: Number(match[1]), text, children: [] })\n    })\n\n    // Nest by depth. The repair pass has already guaranteed no level is\n    // skipped, so a simple stack is sufficient and cannot mis-nest.\n    const stack: Heading[] = []\n    for (const heading of flat) {\n      while (stack.length > 0 && stack[stack.length - 1]!.depth >= heading.depth) stack.pop()\n      const parent = stack[stack.length - 1]\n      if (parent) parent.children.push(heading)\n      else sink.push(heading)\n      stack.push(heading)\n    }\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "tableWrapPlugin",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 96,
+    "end_line": 110,
+    "content": "function tableWrapPlugin() {\n  return () => (tree: HastRoot) => {\n    visit(tree, 'element', (node: Element, index, parent) => {\n      if (node.tagName !== 'table' || index === undefined || !parent) return\n      if ((parent as Element).properties?.['className']?.toString().includes('table-wrap')) return\n\n      parent.children[index] = {\n        type: 'element',\n        tagName: 'div',\n        properties: { className: ['table-wrap'], tabIndex: 0, role: 'region' },\n        children: [node],\n      }\n    })\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "openingParagraphPlugin",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 113,
+    "end_line": 134,
+    "content": "function openingParagraphPlugin() {\n  return () => (tree: HastRoot) => {\n    for (const node of tree.children) {\n      if (node.type !== 'element') continue\n      if (node.tagName === 'p') {\n        node.properties = {\n          ...node.properties,\n          className: [\n            ...(Array.isArray(node.properties?.['className'])\n              ? (node.properties['className'] as string[])\n              : []),\n            'opening',\n          ],\n        }\n        return\n      }\n      // A heading before the first paragraph is fine; anything else means\n      // the document does not open on prose and gets no drop cap.\n      if (!/^h[1-6]$/.test(node.tagName)) return\n    }\n  }\n}"
+  },
+  {
+    "type": "const",
+    "name": "WORDS_PER_MINUTE",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 136,
+    "end_line": 136,
+    "content": "const WORDS_PER_MINUTE = 220"
+  },
+  {
+    "type": "function",
+    "name": "renderDocument",
+    "file_path": "src/pipeline/render.ts",
+    "start_line": 138,
+    "end_line": 207,
+    "content": "export async function renderDocument(\n  doc: MarkdownDoc,\n  ctx: RenderContext,\n): Promise<RenderResult> {\n  if (doc.error !== null) {\n    return {\n      docId: doc.id,\n      html: '',\n      headings: [],\n      repairs: [],\n      mermaidBlocks: [],\n      wordCount: 0,\n      readingMinutes: 0,\n    }\n  }\n\n  const repairs: RepairNote[] = []\n  const headings: Heading[] = []\n  const mermaidBlocks: MermaidBlock[] = []\n\n  // Shiki needs its grammars before the synchronous visitor runs, so the\n  // document is parsed once up front purely to discover which languages it\n  // uses. Cheaper than shipping every grammar.\n  const highlighter = await getHighlighter()\n  const discovery = unified()\n    .use(remarkParse)\n    .use(remarkFrontmatter, ['yaml'])\n    .use(remarkGfm)\n    .use(remarkRehype, { allowDangerousHtml: true })\n    .runSync(unified().use(remarkParse).parse(doc.raw) as MdastRoot) as HastRoot\n  await ensureLanguages(highlighter, collectLanguages(discovery))\n\n  const file = await unified()\n    .use(remarkParse)\n    // Frontmatter first: it must be recognised before any other plugin can\n    // mistake the --- fence for a thematic break.\n    .use(remarkFrontmatter, ['yaml'])\n    .use(remarkGfm)\n    .use(remarkMath)\n    .use(remarkRepair, { sink: repairs, title: doc.title })\n    .use(remarkAlert)\n    .use(remarkRehype, { allowDangerousHtml: true })\n    .use(rehypeRaw)\n    // ---- TRUST BOUNDARY. Nothing user-controlled may be added below. ----\n    .use(rehypeSanitize, sanitizeSchema)\n    // rehype-katex omits throwOnError from its options deliberately: it\n    // always renders a parse error inline rather than throwing, which is\n    // the behaviour we want for arbitrary dropped documents.\n    .use(rehypeKatex)\n    .use(rehypeShiki, { highlighter })\n    .use(rehypeMermaid, { sink: mermaidBlocks })\n    .use(rehypeAssets, { doc, assets: ctx.assets, resolveLink: ctx.resolveLink })\n    .use(headingPlugin(headings))\n    .use(tableWrapPlugin())\n    .use(openingParagraphPlugin())\n    .use(rehypeStringify, { allowDangerousHtml: true })\n    .process(doc.raw)\n\n  const wordCount = doc.raw.split(/\\s+/).filter((w) => /[\\p{L}\\p{N}]/u.test(w)).length\n\n  return {\n    docId: doc.id,\n    html: String(file),\n    headings,\n    repairs,\n    mermaidBlocks,\n    wordCount,\n    readingMinutes: Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE)),\n  }\n}"
+  },
+  {
+    "type": "type",
+    "name": "PropertyDefinition",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 9,
+    "end_line": 11,
+    "content": "type PropertyDefinition = NonNullable<\n  NonNullable<SanitizeSchema['attributes']>[string]\n>[number]"
+  },
+  {
+    "type": "const",
+    "name": "MATH_CLASSES",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 32,
+    "end_line": 32,
+    "content": "const MATH_CLASSES = ['math', 'math-inline', 'math-display'] as const"
+  },
+  {
+    "type": "const",
+    "name": "CODE_LANGUAGE_PATTERN",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 35,
+    "end_line": 35,
+    "content": "const CODE_LANGUAGE_PATTERN = /^language-[a-z0-9+#.-]+$/i"
+  },
+  {
+    "type": "const",
+    "name": "ALERT_CLASSES",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 38,
+    "end_line": 46,
+    "content": "const ALERT_CLASSES = [\n  'markdown-alert',\n  'markdown-alert-note',\n  'markdown-alert-tip',\n  'markdown-alert-important',\n  'markdown-alert-warning',\n  'markdown-alert-caution',\n  'markdown-alert-title',\n] as const"
+  },
+  {
+    "type": "const",
+    "name": "base",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 48,
+    "end_line": 48,
+    "content": "const base = defaultSchema"
+  },
+  {
+    "type": "function",
+    "name": "inherited",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 51,
+    "end_line": 53,
+    "content": "const inherited = (tag: string): PropertyDefinition[] => [\n  ...(base.attributes?.[tag] ?? []),\n]"
+  },
+  {
+    "type": "function",
+    "name": "inheritedExcept",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 65,
+    "end_line": 69,
+    "content": "const inheritedExcept = (tag: string, drop: readonly string[]): PropertyDefinition[] =>\n  inherited(tag).filter((def) => {\n    const name = typeof def === 'string' ? def : def[0]\n    return !drop.includes(name)\n  })"
+  },
+  {
+    "type": "function",
+    "name": "classes",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 77,
+    "end_line": 80,
+    "content": "const classes = (...allowed: (string | RegExp)[]): PropertyDefinition => [\n  'className',\n  ...allowed,\n]"
+  },
+  {
+    "type": "const",
+    "name": "sanitizeSchema",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 82,
+    "end_line": 160,
+    "content": "export const sanitizeSchema: SanitizeSchema = {\n  ...base,\n\n  tagNames: [\n    ...(base.tagNames ?? []),\n    // GFM tables and footnotes need the full table set plus <section>.\n    'section',\n    // Figures are how images are presented; the default schema omits them.\n    'figure',\n    'figcaption',\n  ],\n\n  attributes: {\n    ...base.attributes,\n\n    // Heading anchors, footnote targets and callout wrappers all need ids.\n    '*': [...inherited('*'), 'id', 'className'],\n\n    code: [...inherited('code'), classes(CODE_LANGUAGE_PATTERN, ...MATH_CLASSES)],\n    pre: [...inherited('pre'), classes(CODE_LANGUAGE_PATTERN, 'mermaid')],\n    span: [...inherited('span'), classes(...MATH_CLASSES)],\n    div: [...inherited('div'), classes(...MATH_CLASSES, ...ALERT_CLASSES)],\n    p: [...inherited('p'), classes(...ALERT_CLASSES)],\n    blockquote: [...inherited('blockquote'), classes(...ALERT_CLASSES)],\n\n    // Relative image paths are rewritten to blob URLs after sanitization, so\n    // src must survive - but as an explicit value allowlist, not a bare\n    // 'src'. A scheme-only check passes `data:text/html;base64,<script>`,\n    // because the sanitizer validates the scheme and not the media type.\n    // Listing the permitted shapes is what actually closes that.\n    img: [\n      ...inheritedExcept('img', ['src', 'srcSet', 'srcset']),\n      [\n        'src',\n        /^https?:\\/\\//i,\n        /^blob:/i,\n        // Raster data URIs only. SVG is excluded: it is a document format\n        // that can carry script, and nothing needs it inlined here.\n        /^data:image\\/(?:png|jpeg|jpg|gif|webp|avif|bmp);/i,\n        // Relative paths, resolved against the asset map downstream.\n        /^(?!\\w+:)[^\\s]+$/,\n      ] as PropertyDefinition,\n      'alt',\n      'title',\n      'width',\n      'height',\n      'loading',\n    ],\n    a: [...inherited('a'), 'href', 'title', 'id', 'dataFootnoteRef', 'ariaDescribedby'],\n\n    // Task list checkboxes. Values are pinned, so nothing else gets through.\n    input: [\n      ['type', 'checkbox'] as PropertyDefinition,\n      ['disabled', true] as PropertyDefinition,\n      ['checked', true] as PropertyDefinition,\n    ],\n\n    th: [...inherited('th'), 'colSpan', 'rowSpan'],\n    td: [...inherited('td'), 'colSpan', 'rowSpan'],\n  },\n\n  // Only these schemes may appear in a URL attribute. This is what stops\n  // `javascript:`, `vbscript:` and `data:text/html` payloads.\n  protocols: {\n    ...base.protocols,\n    href: ['http', 'https', 'mailto', 'tel', 'irc', 'ircs', 'xmpp'],\n    // Belt and braces with the img value allowlist above: this rejects the\n    // scheme, that rejects the media type.\n    src: ['http', 'https', 'blob', 'data'],\n  },\n\n  // Never allowed, whatever the markdown says. Listing them explicitly rather\n  // than relying on the default is deliberate: it documents the intent and\n  // survives a future change to the upstream default schema.\n  strip: ['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'base', 'form'],\n\n  clobberPrefix: 'user-content-',\n  clobber: ['name', 'id'],\n}"
+  },
+  {
+    "type": "const",
+    "name": "printSchema",
+    "file_path": "src/pipeline/sanitize.ts",
+    "start_line": 172,
+    "end_line": 180,
+    "content": "export const printSchema: SanitizeSchema = {\n  ...sanitizeSchema,\n  // The print context loads no subresources at all, so remote URLs have no\n  // legitimate purpose. Only inlined data and blob URLs remain.\n  protocols: {\n    href: ['http', 'https', 'mailto'],\n    src: ['data', 'blob'],\n  },\n}"
+  },
+  {
+    "type": "interface",
+    "name": "DocumentViewProps",
+    "file_path": "src/reader/DocumentView.tsx",
+    "start_line": 19,
+    "end_line": 26,
+    "content": "interface DocumentViewProps {\n  readonly doc: MarkdownDoc\n  readonly result: RenderResult\n  readonly index: number\n  readonly total: number\n  readonly onNavigate: (docId: string, hash: string | null) => void\n  readonly onImageOpen: (src: string, alt: string) => void\n}"
+  },
+  {
+    "type": "function",
+    "name": "DocumentView",
+    "file_path": "src/reader/DocumentView.tsx",
+    "start_line": 28,
+    "end_line": 157,
+    "content": "export function DocumentView({\n  doc,\n  result,\n  index,\n  total,\n  onNavigate,\n  onImageOpen,\n}: DocumentViewProps) {\n  const root = useRef<HTMLDivElement>(null)\n\n  useMermaid(root, result.mermaidBlocks, result.html)\n\n  /**\n   * Replace an image that fails to decode with the same styled placeholder a\n   * missing path gets.\n   *\n   * The pipeline can only check that a path *resolves*; a file that resolves\n   * but is truncated, or is not really an image, still fails at decode time\n   * and the browser draws its own broken-image icon. Listening in the capture\n   * phase is required because `error` does not bubble.\n   */\n  useEffect(() => {\n    const node = root.current\n    if (!node) return\n\n    const onError = (event: Event) => {\n      const img = event.target\n      if (!(img instanceof HTMLImageElement)) return\n\n      const figure = img.closest('figure')\n      const replacement = document.createElement('div')\n      replacement.className = 'asset-missing'\n      const label = document.createElement('span')\n      label.textContent = 'Image could not be displayed'\n      const path = document.createElement('code')\n      path.textContent = img.getAttribute('alt') || 'unnamed image'\n      replacement.append(label, path)\n      ;(figure ?? img).replaceWith(replacement)\n    }\n\n    node.addEventListener('error', onError, true)\n    return () => node.removeEventListener('error', onError, true)\n  }, [result.html])\n\n  // Intercept in-document clicks: cross-document links become navigation,\n  // and images open in the lightbox.\n  useEffect(() => {\n    const node = root.current\n    if (!node) return\n\n    const onClick = (event: MouseEvent) => {\n      const target = event.target as HTMLElement | null\n      if (!target) return\n\n      const link = target.closest('a[data-doc]')\n      if (link) {\n        event.preventDefault()\n        onNavigate(\n          link.getAttribute('data-doc') ?? '',\n          link.getAttribute('data-hash'),\n        )\n        return\n      }\n\n      const img = target.closest('figure img')\n      if (img instanceof HTMLImageElement) {\n        event.preventDefault()\n        onImageOpen(img.src, img.alt)\n      }\n    }\n\n    node.addEventListener('click', onClick)\n    return () => node.removeEventListener('click', onClick)\n  }, [onNavigate, onImageOpen])\n\n  const frontmatterEntries = useMemo(\n    () =>\n      Object.entries(doc.frontmatter)\n        .filter(([key]) => !['title', 'order'].includes(key))\n        .filter(([, value]) => typeof value === 'string' || typeof value === 'number')\n        .slice(0, 6),\n    [doc.frontmatter],\n  )\n\n  return (\n    <article className=\"doc\" aria-labelledby={`doc-title-${doc.id}`}>\n      <header className=\"doc-head\">\n        <p className=\"doc-eyebrow\">\n          <span>{doc.path}</span>\n          <span aria-hidden=\"true\">·</span>\n          <span>\n            {result.readingMinutes} min · {result.wordCount.toLocaleString()} words\n          </span>\n        </p>\n        <h1 className=\"doc-title\" id={`doc-title-${doc.id}`}>\n          {doc.title}\n        </h1>\n\n        {frontmatterEntries.length > 0 && (\n          <dl className=\"doc-frontmatter\">\n            {frontmatterEntries.map(([key, value]) => (\n              <div key={key}>\n                <dt>{key}</dt>\n                <dd>{String(value)}</dd>\n              </div>\n            ))}\n          </dl>\n        )}\n      </header>\n\n      {result.repairs.length > 0 && <RepairNotice repairs={result.repairs} />}\n\n      {doc.error !== null ? (\n        <p className=\"doc-failed\" role=\"alert\">\n          This file could not be read: {doc.error}\n        </p>\n      ) : (\n        <Prose html={result.html} rootRef={root} />\n      )}\n\n      <footer className=\"doc-folio\" aria-hidden=\"true\">\n        <span>{doc.title}</span>\n        <span className=\"doc-folio-rule\" />\n        <span>\n          {index + 1} / {total}\n        </span>\n      </footer>\n    </article>\n  )\n}"
+  },
+  {
+    "type": "type",
+    "name": "State",
+    "file_path": "src/reader/ExportBar.tsx",
+    "start_line": 17,
+    "end_line": 20,
+    "content": "type State =\n  | { readonly kind: 'idle' }\n  | { readonly kind: 'working'; readonly what: string }\n  | { readonly kind: 'error'; readonly message: string }"
+  },
+  {
+    "type": "function",
+    "name": "ExportBar",
+    "file_path": "src/reader/ExportBar.tsx",
+    "start_line": 22,
+    "end_line": 88,
+    "content": "export function ExportBar({ set }: { readonly set: DocumentSet }) {\n  const [state, setState] = useState<State>({ kind: 'idle' })\n\n  /** Render every document, so the export contains the whole set. */\n  const renderAll = useCallback(async (): Promise<RenderResult[]> => {\n    const results: RenderResult[] = []\n    for (const doc of set.docs) {\n      if (doc.error !== null) continue\n      results.push(await renderDoc(set, doc))\n    }\n    return results\n  }, [set])\n\n  const exportHtml = useCallback(async () => {\n    setState({ kind: 'working', what: 'Building a self-contained file' })\n    try {\n      const results = await renderAll()\n      const html = await buildStandalone({ set, results })\n      downloadStandalone(html, safeFilename(set.rootName, 'html'))\n      setState({ kind: 'idle' })\n    } catch (err) {\n      setState({\n        kind: 'error',\n        message: err instanceof Error ? err.message : 'The export failed.',\n      })\n    }\n  }, [set, renderAll])\n\n  const exportPdf = useCallback(async () => {\n    setState({ kind: 'working', what: 'Typesetting for print' })\n    try {\n      const results = await renderAll()\n      const html = await buildStandalone({ set, results })\n      const blob = await requestPdf({ html, title: set.rootName })\n      downloadBlob(blob, safeFilename(set.rootName, 'pdf'))\n      setState({ kind: 'idle' })\n    } catch (err) {\n      setState({\n        kind: 'error',\n        message: err instanceof Error ? err.message : 'The export failed.',\n      })\n    }\n  }, [set, renderAll])\n\n  const busy = state.kind === 'working'\n\n  return (\n    <div className=\"export-bar\">\n      <button type=\"button\" onClick={() => void exportPdf()} disabled={busy}>\n        PDF\n      </button>\n      <button type=\"button\" onClick={() => void exportHtml()} disabled={busy}>\n        HTML\n      </button>\n\n      <span className=\"export-status\" role=\"status\" aria-live=\"polite\">\n        {busy && `${state.what}…`}\n      </span>\n\n      {state.kind === 'error' && (\n        <span className=\"export-error\" role=\"alert\">\n          {state.message}\n        </span>\n      )}\n    </div>\n  )\n}"
+  },
+  {
+    "type": "interface",
+    "name": "IndexSidebarProps",
+    "file_path": "src/reader/IndexSidebar.tsx",
+    "start_line": 14,
+    "end_line": 19,
+    "content": "interface IndexSidebarProps {\n  readonly set: DocumentSet\n  readonly activeDoc: MarkdownDoc\n  readonly headings: readonly Heading[]\n  readonly onOpenDoc: (docId: string) => void\n}"
+  },
+  {
+    "type": "function",
+    "name": "IndexSidebar",
+    "file_path": "src/reader/IndexSidebar.tsx",
+    "start_line": 21,
+    "end_line": 99,
+    "content": "export function IndexSidebar({ set, activeDoc, headings, onOpenDoc }: IndexSidebarProps) {\n  const activeHeading = useActiveHeading(headings)\n\n  // Group documents by directory so nested sections read as sections.\n  const groups = useMemo(() => {\n    const out: { dir: string; docs: MarkdownDoc[] }[] = []\n    for (const doc of set.docs) {\n      const last = out[out.length - 1]\n      if (last && last.dir === doc.dir) last.docs.push(doc)\n      else out.push({ dir: doc.dir, docs: [doc] })\n    }\n    return out\n  }, [set.docs])\n\n  return (\n    <nav className=\"index\" aria-label=\"Contents\">\n      <div className=\"index-head\">\n        <p className=\"index-eyebrow\">Contents</p>\n        <p className=\"index-root\">{set.rootName}</p>\n      </div>\n\n      <ol className=\"index-docs\">\n        {groups.map((group) => (\n          <li key={group.dir || '.'} className=\"index-group\">\n            {group.dir !== '' && <p className=\"index-dir\">{group.dir}</p>}\n            <ol className=\"index-group-docs\">\n              {group.docs.map((doc) => {\n                const isActive = doc.id === activeDoc.id\n                return (\n                  <li key={doc.id}>\n                    <a\n                      href={`#${doc.id}`}\n                      className={`index-doc${isActive ? ' is-active' : ''}${\n                        doc.error ? ' is-failed' : ''\n                      }`}\n                      aria-current={isActive ? 'page' : undefined}\n                      onClick={(e) => {\n                        e.preventDefault()\n                        onOpenDoc(doc.id)\n                      }}\n                    >\n                      <span className=\"index-marker\" aria-hidden=\"true\">\n                        {isActive ? '●' : '○'}\n                      </span>\n                      <span className=\"index-doc-title\">{doc.title}</span>\n                    </a>\n\n                    {/* The open document expands into its own heading tree. */}\n                    {isActive && headings.length > 0 && (\n                      <HeadingTree\n                        headings={headings}\n                        activeId={activeHeading}\n                        depth={0}\n                      />\n                    )}\n                  </li>\n                )\n              })}\n            </ol>\n          </li>\n        ))}\n      </ol>\n\n      {set.skipped.length > 0 && (\n        <details className=\"index-skipped\">\n          <summary>{set.skipped.length} files skipped</summary>\n          <ul>\n            {set.skipped.slice(0, 20).map((s) => (\n              <li key={s.path}>\n                <code>{s.path}</code>\n                <span>{s.reason}</span>\n              </li>\n            ))}\n          </ul>\n        </details>\n      )}\n    </nav>\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "HeadingTree",
+    "file_path": "src/reader/IndexSidebar.tsx",
+    "start_line": 101,
+    "end_line": 135,
+    "content": "function HeadingTree({\n  headings,\n  activeId,\n  depth,\n}: {\n  readonly headings: readonly Heading[]\n  readonly activeId: string | null\n  readonly depth: number\n}) {\n  // Beyond three levels the sidebar becomes a wall of text rather than a map.\n  if (depth > 2) return null\n\n  return (\n    <ul className=\"index-headings\" data-depth={depth}>\n      {headings.map((heading) => (\n        <li key={heading.id}>\n          <a\n            href={`#${heading.id}`}\n            className={`index-heading${heading.id === activeId ? ' is-active' : ''}`}\n            aria-current={heading.id === activeId ? 'true' : undefined}\n          >\n            {heading.text}\n          </a>\n          {heading.children.length > 0 && (\n            <HeadingTree\n              headings={heading.children}\n              activeId={activeId}\n              depth={depth + 1}\n            />\n          )}\n        </li>\n      ))}\n    </ul>\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "flatten",
+    "file_path": "src/reader/IndexSidebar.tsx",
+    "start_line": 138,
+    "end_line": 140,
+    "content": "function flatten(headings: readonly Heading[]): Heading[] {\n  return headings.flatMap((h) => [h, ...flatten(h.children)])\n}"
+  },
+  {
+    "type": "function",
+    "name": "useActiveHeading",
+    "file_path": "src/reader/IndexSidebar.tsx",
+    "start_line": 151,
+    "end_line": 202,
+    "content": "function useActiveHeading(headings: readonly Heading[]): string | null {\n  const [active, setActive] = useState<string | null>(null)\n  const visible = useRef(new Set<string>())\n\n  useEffect(() => {\n    const flat = flatten(headings)\n    if (flat.length === 0) {\n      setActive(null)\n      return\n    }\n\n    visible.current.clear()\n    const order = new Map(flat.map((h, i) => [h.id, i]))\n\n    const observer = new IntersectionObserver(\n      (entries) => {\n        for (const entry of entries) {\n          const id = entry.target.id\n          if (entry.isIntersecting) visible.current.add(id)\n          else visible.current.delete(id)\n        }\n\n        // The topmost visible heading in document order is the current one.\n        let best: string | null = null\n        let bestIndex = Number.POSITIVE_INFINITY\n        for (const id of visible.current) {\n          const index = order.get(id) ?? Number.POSITIVE_INFINITY\n          if (index < bestIndex) {\n            bestIndex = index\n            best = id\n          }\n        }\n\n        // Nothing intersecting means the reader is mid-section, between two\n        // headings: keep the last one rather than clearing the highlight.\n        if (best !== null) setActive(best)\n      },\n      { rootMargin: '-25% 0px -65% 0px', threshold: 0 },\n    )\n\n    const targets = flat\n      .map((h) => document.getElementById(h.id))\n      .filter((el): el is HTMLElement => el !== null)\n\n    for (const el of targets) observer.observe(el)\n    setActive(flat[0]?.id ?? null)\n\n    return () => observer.disconnect()\n  }, [headings])\n\n  return active\n}"
+  },
+  {
+    "type": "interface",
+    "name": "LightboxProps",
+    "file_path": "src/reader/Lightbox.tsx",
+    "start_line": 12,
+    "end_line": 16,
+    "content": "interface LightboxProps {\n  readonly src: string\n  readonly alt: string\n  readonly onClose: () => void\n}"
+  },
+  {
+    "type": "function",
+    "name": "Lightbox",
+    "file_path": "src/reader/Lightbox.tsx",
+    "start_line": 18,
+    "end_line": 73,
+    "content": "export function Lightbox({ src, alt, onClose }: LightboxProps) {\n  const closeButton = useRef<HTMLButtonElement>(null)\n  const returnFocusTo = useRef<Element | null>(null)\n\n  useEffect(() => {\n    returnFocusTo.current = document.activeElement\n    closeButton.current?.focus()\n\n    const onKeyDown = (event: KeyboardEvent) => {\n      if (event.key === 'Escape') {\n        event.preventDefault()\n        onClose()\n        return\n      }\n      // Only one focusable element, so Tab must simply stay on it rather\n      // than escaping to the document behind the overlay.\n      if (event.key === 'Tab') {\n        event.preventDefault()\n        closeButton.current?.focus()\n      }\n    }\n\n    document.addEventListener('keydown', onKeyDown)\n    const previousOverflow = document.body.style.overflow\n    document.body.style.overflow = 'hidden'\n\n    return () => {\n      document.removeEventListener('keydown', onKeyDown)\n      document.body.style.overflow = previousOverflow\n      if (returnFocusTo.current instanceof HTMLElement) returnFocusTo.current.focus()\n    }\n  }, [onClose])\n\n  return (\n    <div\n      className=\"lightbox\"\n      role=\"dialog\"\n      aria-modal=\"true\"\n      aria-label={alt === '' ? 'Image' : alt}\n      onClick={(e) => {\n        // Clicking the backdrop closes; clicking the image itself does not.\n        if (e.target === e.currentTarget) onClose()\n      }}\n    >\n      <button ref={closeButton} type=\"button\" className=\"lightbox-close\" onClick={onClose}>\n        Close\n        <span aria-hidden=\"true\"> ✕</span>\n      </button>\n\n      <figure className=\"lightbox-figure\">\n        <img src={src} alt={alt} />\n        {alt !== '' && <figcaption>{alt}</figcaption>}\n      </figure>\n    </div>\n  )\n}"
+  },
+  {
+    "type": "type",
+    "name": "MermaidApi",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 28,
+    "end_line": 28,
+    "content": "type MermaidApi = typeof mermaidModule"
+  },
+  {
+    "type": "const",
+    "name": "mermaidReady",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 30,
+    "end_line": 30,
+    "content": "let mermaidReady: Promise<MermaidApi> | null = null"
+  },
+  {
+    "type": "function",
+    "name": "loadMermaid",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 32,
+    "end_line": 76,
+    "content": "function loadMermaid(): Promise<MermaidApi> {\n  // Caching the promise is what makes initialize() run exactly once. Caching a\n  // *rejected* one would be permanent, though: the chunk is ~3MB, so a reader\n  // who navigates away mid-download aborts the fetch, and every later document\n  // would then reuse that failure and silently show diagram source forever.\n  // On failure the slot is cleared so the next attempt genuinely retries.\n  mermaidReady ??= import('mermaid')\n    .catch((err: unknown) => {\n      mermaidReady = null\n      throw err instanceof Error ? err : new Error(String(err))\n    })\n    .then(({ default: mermaid }) => {\n      mermaid.initialize({\n        // We call render() explicitly, so the library must not also scan the\n        // document on load and race us for the same elements.\n        startOnLoad: false,\n        // Diagram source comes from arbitrary dropped files. 'strict' encodes\n        // HTML in labels and disables click bindings; 'loose' allows both.\n        securityLevel: 'strict',\n        theme: 'base',\n        fontFamily: \"'Newsreader', Georgia, serif\",\n        themeVariables: {\n          // Matched to the paper surface, so a diagram sits on the page rather\n          // than looking like something pasted onto it.\n          background: '#f5efe1',\n          primaryColor: '#eee6d4',\n          primaryTextColor: '#2a241d',\n          primaryBorderColor: '#6d6154',\n          lineColor: '#6d6154',\n          secondaryColor: '#e6dcc6',\n          tertiaryColor: '#faf6ec',\n          mainBkg: '#faf6ec',\n          nodeBorder: '#6d6154',\n          clusterBkg: '#eee6d4',\n          clusterBorder: '#ddd2ba',\n          titleColor: '#17120d',\n          edgeLabelBackground: '#f5efe1',\n          fontSize: '15px',\n        },\n      })\n      return mermaid\n    })\n\n  return mermaidReady\n}"
+  },
+  {
+    "type": "const",
+    "name": "inflight",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 82,
+    "end_line": 82,
+    "content": "const inflight = new Set<Promise<unknown>>()"
+  },
+  {
+    "type": "function",
+    "name": "whenDiagramsSettled",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 84,
+    "end_line": 86,
+    "content": "export function whenDiagramsSettled(): Promise<void> {\n  return Promise.allSettled([...inflight]).then(() => undefined)\n}"
+  },
+  {
+    "type": "function",
+    "name": "currentSlot",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 89,
+    "end_line": 93,
+    "content": "function currentSlot(host: HTMLElement, id: string): HTMLElement | null {\n  return host.querySelector<HTMLElement>(\n    `[data-mermaid=\"${CSS.escape(id)}\"] .mermaid-slot`,\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "svgFragment",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 96,
+    "end_line": 98,
+    "content": "function svgFragment(svg: string): DocumentFragment {\n  return document.createRange().createContextualFragment(svg)\n}"
+  },
+  {
+    "type": "const",
+    "name": "RENDER_TIMEOUT_MS",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 101,
+    "end_line": 101,
+    "content": "const RENDER_TIMEOUT_MS = 15_000"
+  },
+  {
+    "type": "function",
+    "name": "withTimeout",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 103,
+    "end_line": 117,
+    "content": "function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {\n  return new Promise<T>((resolve, reject) => {\n    const timer = setTimeout(() => reject(new Error('mermaid render timed out')), ms)\n    promise.then(\n      (value) => {\n        clearTimeout(timer)\n        resolve(value)\n      },\n      (err: unknown) => {\n        clearTimeout(timer)\n        reject(err instanceof Error ? err : new Error(String(err)))\n      },\n    )\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "drawDiagramsIn",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 129,
+    "end_line": 175,
+    "content": "export async function drawDiagramsIn(\n  root: HTMLElement,\n  blocks: readonly MermaidBlock[],\n): Promise<void> {\n  if (blocks.length === 0) return\n\n  const byId = new Map(blocks.map((b) => [b.id, b.code]))\n  const targets = [...root.querySelectorAll<HTMLElement>('[data-mermaid]')].flatMap((figure) => {\n    const id = figure.getAttribute('data-mermaid')\n    const code = id === null ? undefined : byId.get(id)\n    const slot = figure.querySelector<HTMLElement>('.mermaid-slot')\n    // A slot already carrying a diagram was drawn by an earlier pass.\n    if (!id || !code || !slot || slot.classList.contains('is-drawn')) return []\n    return [{ id, code, slot }]\n  })\n  if (targets.length === 0) return\n\n  let mermaid: MermaidApi\n  try {\n    mermaid = await withTimeout(loadMermaid(), RENDER_TIMEOUT_MS)\n  } catch {\n    // Mark the slots so the failure is visible rather than looking like a\n    // diagram that simply never arrived. The source stays readable.\n    for (const { slot } of targets) slot.classList.add('is-failed')\n    return\n  }\n\n  for (const { id, code, slot } of targets) {\n    // A fresh id per call. Mermaid caches SVG defs by id, so reusing one\n    // across changed source yields a stale or broken diagram.\n    const renderId = `${id}-${Math.random().toString(36).slice(2, 8)}`\n    try {\n      const { svg } = await withTimeout(mermaid.render(renderId, code), RENDER_TIMEOUT_MS)\n      // Re-query rather than reusing the node captured before the await: a\n      // node reference held across an await may no longer be in the document,\n      // and writing into a detached one fails silently.\n      const current = currentSlot(root, id) ?? slot\n      current.replaceChildren(svgFragment(svg))\n      current.classList.add('is-drawn')\n    } catch {\n      const current = currentSlot(root, id) ?? slot\n      // Mark it, so a later pass does not retry indefinitely and the reader\n      // is left with the source rather than an empty frame.\n      current.classList.add('is-failed')\n    }\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "useMermaid",
+    "file_path": "src/reader/Mermaid.tsx",
+    "start_line": 184,
+    "end_line": 209,
+    "content": "export function useMermaid(\n  root: RefObject<HTMLElement | null>,\n  blocks: readonly MermaidBlock[],\n  /**\n   * The rendered HTML currently injected into `root`.\n   *\n   * Required as a dependency, not a convenience: navigating away and back to\n   * the same document replaces the DOM with a fresh copy of this string while\n   * `blocks` keeps its cached identity. Without it the effect does not re-run,\n   * the freshly injected placeholders are never drawn, and the reader sees the\n   * diagram source instead of the diagram.\n   */\n  htmlKey: string,\n): void {\n  useEffect(() => {\n    const host = root.current\n    if (!host || blocks.length === 0) return\n\n    // No cancellation flag: the draw re-queries its target before every write\n    // and skips slots already marked, so an unmounted effect writes into a\n    // node that is no longer in the document and is harmlessly inert.\n    const job = drawDiagramsIn(host, blocks)\n    inflight.add(job)\n    void job.finally(() => inflight.delete(job))\n  }, [root, blocks, htmlKey])\n}"
+  },
+  {
+    "type": "function",
+    "name": "ProgressRail",
+    "file_path": "src/reader/ProgressRail.tsx",
+    "start_line": 13,
+    "end_line": 62,
+    "content": "export function ProgressRail({\n  scrollHost,\n}: {\n  readonly scrollHost: RefObject<HTMLElement | null>\n}) {\n  const [progress, setProgress] = useState(0)\n  const frame = useRef(0)\n\n  useEffect(() => {\n    const host = scrollHost.current\n    if (!host) return\n\n    const measure = () => {\n      const scrollable = host.scrollHeight - host.clientHeight\n      // A document shorter than the viewport is fully read by definition.\n      setProgress(scrollable <= 0 ? 1 : Math.min(1, host.scrollTop / scrollable))\n    }\n\n    // Scroll fires far more often than a frame can paint, so the read of\n    // layout properties is coalesced into one per frame. Reading scrollTop\n    // synchronously on every event is what makes naive scroll handlers janky.\n    const onScroll = () => {\n      if (frame.current !== 0) return\n      frame.current = requestAnimationFrame(() => {\n        frame.current = 0\n        measure()\n      })\n    }\n\n    measure()\n    host.addEventListener('scroll', onScroll, { passive: true })\n\n    const observer = new ResizeObserver(measure)\n    observer.observe(host)\n\n    return () => {\n      host.removeEventListener('scroll', onScroll)\n      observer.disconnect()\n      if (frame.current !== 0) cancelAnimationFrame(frame.current)\n    }\n  }, [scrollHost])\n\n  return (\n    <div className=\"rail\" aria-hidden=\"true\">\n      <div className=\"rail-base\" />\n      <div className=\"rail-fill\" style={{ transform: `scaleY(${progress})` }} />\n      <div className=\"rail-thumb\" style={{ top: `${progress * 100}%` }} />\n    </div>\n  )\n}"
+  },
+  {
+    "type": "const",
+    "name": "Prose",
+    "file_path": "src/reader/Prose.tsx",
+    "start_line": 16,
+    "end_line": 31,
+    "content": "export const Prose = memo(function Prose({\n  html,\n  rootRef,\n}: {\n  readonly html: string\n  readonly rootRef: Ref<HTMLDivElement>\n}) {\n  return (\n    <div\n      ref={rootRef}\n      className=\"prose\"\n      // Sanitised upstream at the pipeline's trust boundary.\n      dangerouslySetInnerHTML={{ __html: html }}\n    />\n  )\n})"
+  },
+  {
+    "type": "const",
+    "name": "RULE_LABELS",
+    "file_path": "src/reader/RepairNotice.tsx",
+    "start_line": 14,
+    "end_line": 20,
+    "content": "const RULE_LABELS: Record<RepairRule, string> = {\n  'heading-skip': 'Heading levels',\n  'duplicate-h1': 'Duplicate titles',\n  'list-nesting': 'List nesting',\n  'mixed-markers': 'List spacing',\n  'unbalanced-emphasis': 'Unclosed emphasis',\n}"
+  },
+  {
+    "type": "function",
+    "name": "RepairNotice",
+    "file_path": "src/reader/RepairNotice.tsx",
+    "start_line": 22,
+    "end_line": 86,
+    "content": "export function RepairNotice({ repairs }: { readonly repairs: readonly RepairNote[] }) {\n  const [open, setOpen] = useState(false)\n  const panelId = useId()\n\n  const byRule = new Map<RepairRule, RepairNote[]>()\n  for (const note of repairs) {\n    const list = byRule.get(note.rule) ?? []\n    list.push(note)\n    byRule.set(note.rule, list)\n  }\n\n  return (\n    <aside className=\"repairs\">\n      <button\n        type=\"button\"\n        className=\"repairs-toggle\"\n        aria-expanded={open}\n        aria-controls={panelId}\n        onClick={() => setOpen((v) => !v)}\n      >\n        <span className=\"repairs-count\">{repairs.length}</span>\n        <span>\n          {repairs.length === 1 ? 'formatting fix applied' : 'formatting fixes applied'}\n        </span>\n        <span className=\"repairs-chevron\" aria-hidden=\"true\">\n          {open ? '−' : '+'}\n        </span>\n      </button>\n\n      <div id={panelId} className=\"repairs-panel\" hidden={!open}>\n        <p className=\"repairs-lede\">\n          The source file was not changed. These adjustments were made only for\n          this rendering.\n        </p>\n\n        {[...byRule].map(([rule, notes]) => (\n          <section key={rule} className=\"repairs-group\">\n            <h2 className=\"repairs-group-title\">\n              {RULE_LABELS[rule]}\n              <span className=\"repairs-group-count\">{notes.length}</span>\n            </h2>\n            <ul className=\"repairs-list\">\n              {notes.slice(0, 8).map((note, i) => (\n                <li key={`${rule}-${i}`}>\n                  <span className=\"repairs-line\">\n                    {note.line === null ? '—' : `line ${note.line}`}\n                  </span>\n                  <span className=\"repairs-change\">\n                    <code>{note.before}</code>\n                    <span aria-hidden=\"true\"> → </span>\n                    <code>{note.after}</code>\n                  </span>\n                  <span className=\"repairs-detail\">{note.detail}</span>\n                </li>\n              ))}\n              {notes.length > 8 && (\n                <li className=\"repairs-more\">and {notes.length - 8} more</li>\n              )}\n            </ul>\n          </section>\n        ))}\n      </div>\n    </aside>\n  )\n}"
+  },
+  {
+    "type": "function",
+    "name": "Shell",
+    "file_path": "src/reader/Shell.tsx",
+    "start_line": 21,
+    "end_line": 219,
+    "content": "export function Shell() {\n  const set = useReader((s) => s.set)\n  const activeDocId = useReader((s) => s.activeDocId)\n  const openDoc = useReader((s) => s.openDoc)\n  const reset = useReader((s) => s.reset)\n\n  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null)\n  const [navOpen, setNavOpen] = useState(false)\n  const stage = useRef<HTMLDivElement>(null)\n\n  const docs = set?.docs ?? []\n  const index = Math.max(0, docs.findIndex((d) => d.id === activeDocId))\n  const activeDoc = docs[index]\n  const state = useRenderedDoc(set, activeDoc)\n\n  /** Open a document, optionally scrolling to a heading within it. */\n  const navigate = useCallback(\n    (docId: string, hash: string | null) => {\n      openDoc(docId)\n      setNavOpen(false)\n      // The target document has to render before its heading exists.\n      requestAnimationFrame(() => {\n        if (hash === null) {\n          stage.current?.scrollTo({ top: 0, behavior: 'instant' })\n          return\n        }\n        document.getElementById(hash)?.scrollIntoView({ block: 'start' })\n      })\n    },\n    [openDoc],\n  )\n\n  const step = useCallback(\n    (delta: number) => {\n      const next = docs[index + delta]\n      if (next) navigate(next.id, null)\n    },\n    [docs, index, navigate],\n  )\n\n  // Keyboard navigation. Arrows move between documents; the reader should\n  // never need the mouse to get through a set.\n  useEffect(() => {\n    const onKeyDown = (event: KeyboardEvent) => {\n      if (event.metaKey || event.ctrlKey || event.altKey) return\n      const target = event.target as HTMLElement | null\n      // Never hijack keys inside a control.\n      if (target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName)) return\n\n      switch (event.key) {\n        case 'ArrowRight':\n        case 'j':\n          event.preventDefault()\n          step(1)\n          break\n        case 'ArrowLeft':\n        case 'k':\n          event.preventDefault()\n          step(-1)\n          break\n        case 'Home':\n          if (docs[0]) {\n            event.preventDefault()\n            navigate(docs[0].id, null)\n          }\n          break\n        case 'End': {\n          const last = docs[docs.length - 1]\n          if (last) {\n            event.preventDefault()\n            navigate(last.id, null)\n          }\n          break\n        }\n        case 'Escape':\n          setNavOpen(false)\n          break\n      }\n    }\n\n    window.addEventListener('keydown', onKeyDown)\n    return () => window.removeEventListener('keydown', onKeyDown)\n  }, [step, navigate, docs])\n\n  // Scroll to the top of the sheet whenever the document changes, or the\n  // reader lands mid-way down a document they have not read yet.\n  useEffect(() => {\n    stage.current?.scrollTo({ top: 0, behavior: 'instant' })\n  }, [activeDocId])\n\n  if (!set || !activeDoc) return null\n\n  const headings = state.kind === 'ready' ? state.result.headings : []\n\n  return (\n    <div className={`shell reader${navOpen ? ' nav-open' : ''}`}>\n      <a href=\"#reader-main\" className=\"skip-link\">\n        Skip to the document\n      </a>\n\n      <header className=\"reader-bar\">\n        <button\n          type=\"button\"\n          className=\"reader-nav-toggle\"\n          aria-expanded={navOpen}\n          aria-controls=\"reader-index\"\n          onClick={() => setNavOpen((v) => !v)}\n        >\n          <span aria-hidden=\"true\">☰</span> Contents\n        </button>\n\n        <span className=\"reader-mark\">{set.rootName}</span>\n        <span className=\"reader-rule\" aria-hidden=\"true\" />\n\n        <span className=\"reader-position\">\n          {index + 1} / {docs.length}\n        </span>\n\n        <div className=\"reader-steps\">\n          <button\n            type=\"button\"\n            onClick={() => step(-1)}\n            disabled={index === 0}\n            aria-label=\"Previous document\"\n          >\n            ←\n          </button>\n          <button\n            type=\"button\"\n            onClick={() => step(1)}\n            disabled={index === docs.length - 1}\n            aria-label=\"Next document\"\n          >\n            →\n          </button>\n        </div>\n\n        <ExportBar set={set} />\n\n        <button type=\"button\" className=\"reader-close\" onClick={reset}>\n          Close\n        </button>\n      </header>\n\n      <div className=\"reader-body\">\n        <aside className=\"reader-index\" id=\"reader-index\">\n          <IndexSidebar\n            set={set}\n            activeDoc={activeDoc}\n            headings={headings}\n            onOpenDoc={(id) => navigate(id, null)}\n          />\n        </aside>\n\n        {/* Dismisses the index when it is an overlay on narrow screens. */}\n        <button\n          type=\"button\"\n          className=\"reader-scrim\"\n          tabIndex={-1}\n          aria-hidden=\"true\"\n          onClick={() => setNavOpen(false)}\n        />\n\n        <main className=\"reader-stage\" id=\"reader-main\" ref={stage} tabIndex={-1}>\n          <ProgressRail scrollHost={stage} />\n\n          <div className=\"sheet reader-sheet\">\n            {state.kind === 'pending' && (\n              <p className=\"reader-status\" role=\"status\">\n                Typesetting {activeDoc.title}…\n              </p>\n            )}\n\n            {state.kind === 'failed' && (\n              <p className=\"reader-status is-error\" role=\"alert\">\n                {state.message}\n              </p>\n            )}\n\n            {state.kind === 'ready' && (\n              <DocumentView\n                doc={activeDoc}\n                result={state.result}\n                index={index}\n                total={docs.length}\n                onNavigate={navigate}\n                onImageOpen={(src, alt) => setLightbox({ src, alt })}\n              />\n            )}\n          </div>\n        </main>\n      </div>\n\n      {lightbox && (\n        <Lightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />\n      )}\n    </div>\n  )\n}"
+  },
+  {
+    "type": "const",
+    "name": "cache",
+    "file_path": "src/state/render.ts",
+    "start_line": 16,
+    "end_line": 16,
+    "content": "const cache = new WeakMap<DocumentSet, Map<string, RenderResult>>()"
+  },
+  {
+    "type": "const",
+    "name": "inflight",
+    "file_path": "src/state/render.ts",
+    "start_line": 17,
+    "end_line": 17,
+    "content": "const inflight = new WeakMap<DocumentSet, Map<string, Promise<RenderResult>>>()"
+  },
+  {
+    "type": "function",
+    "name": "mapFor",
+    "file_path": "src/state/render.ts",
+    "start_line": 19,
+    "end_line": 26,
+    "content": "function mapFor<T>(store: WeakMap<DocumentSet, Map<string, T>>, set: DocumentSet) {\n  let map = store.get(set)\n  if (!map) {\n    map = new Map<string, T>()\n    store.set(set, map)\n  }\n  return map\n}"
+  },
+  {
+    "type": "function",
+    "name": "getCached",
+    "file_path": "src/state/render.ts",
+    "start_line": 28,
+    "end_line": 30,
+    "content": "export function getCached(set: DocumentSet, docId: string): RenderResult | undefined {\n  return cache.get(set)?.get(docId)\n}"
+  },
+  {
+    "type": "function",
+    "name": "render",
+    "file_path": "src/state/render.ts",
+    "start_line": 39,
+    "end_line": 62,
+    "content": "export function render(set: DocumentSet, doc: MarkdownDoc): Promise<RenderResult> {\n  const done = mapFor(cache, set)\n  const existing = done.get(doc.id)\n  if (existing) return Promise.resolve(existing)\n\n  const pending = mapFor(inflight, set)\n  const running = pending.get(doc.id)\n  if (running) return running\n\n  const resolveLink = makeLinkResolver(set)\n  const promise = renderDocument(doc, { assets: set.assets, resolveLink })\n    .then((result) => {\n      done.set(doc.id, result)\n      pending.delete(doc.id)\n      return result\n    })\n    .catch((err: unknown) => {\n      pending.delete(doc.id)\n      throw err\n    })\n\n  pending.set(doc.id, promise)\n  return promise\n}"
+  },
+  {
+    "type": "type",
+    "name": "RenderState",
+    "file_path": "src/state/render.ts",
+    "start_line": 64,
+    "end_line": 67,
+    "content": "export type RenderState =\n  | { readonly kind: 'pending' }\n  | { readonly kind: 'ready'; readonly result: RenderResult }\n  | { readonly kind: 'failed'; readonly message: string }"
+  },
+  {
+    "type": "function",
+    "name": "useRenderedDoc",
+    "file_path": "src/state/render.ts",
+    "start_line": 75,
+    "end_line": 146,
+    "content": "export function useRenderedDoc(\n  set: DocumentSet | null,\n  doc: MarkdownDoc | undefined,\n): RenderState {\n  // The state carries the id it belongs to. Without that, navigating paints\n  // the new document's title beside the *previous* document's body for one\n  // frame - React re-renders as soon as the id prop changes, but state only\n  // catches up in the effect below. Deriving the mismatch during render\n  // closes the gap instead of letting the reader see a mismatched page.\n  const [state, setState] = useState<{ docId: string; state: RenderState }>(() => ({\n    docId: doc?.id ?? '',\n    state: set && doc ? cachedOrPending(set, doc) : { kind: 'pending' },\n  }))\n\n  useEffect(() => {\n    if (!set || !doc) return\n\n    const cached = getCached(set, doc.id)\n    if (cached) {\n      setState({ docId: doc.id, state: { kind: 'ready', result: cached } })\n      return\n    }\n\n    let live = true\n    setState({ docId: doc.id, state: { kind: 'pending' } })\n\n    render(set, doc)\n      .then((result) => {\n        if (live) setState({ docId: doc.id, state: { kind: 'ready', result } })\n      })\n      .catch((err: unknown) => {\n        if (live) {\n          setState({\n            docId: doc.id,\n            state: {\n              kind: 'failed',\n              message: err instanceof Error ? err.message : 'Could not typeset this document.',\n            },\n          })\n        }\n      })\n\n    return () => {\n      live = false\n    }\n  }, [set, doc])\n\n  // Warm the neighbours once the current document is on screen.\n  useEffect(() => {\n    if (!set || !doc || state.state.kind !== 'ready') return\n\n    const index = set.docs.findIndex((d) => d.id === doc.id)\n    const neighbours = [set.docs[index + 1], set.docs[index - 1]].filter(\n      (d): d is MarkdownDoc => d !== undefined && d.error === null,\n    )\n\n    const idle = requestIdleCallbackShim(() => {\n      for (const next of neighbours) void render(set, next).catch(() => undefined)\n    })\n    return () => cancelIdleCallbackShim(idle)\n  }, [set, doc, state.state.kind])\n\n  // A result belonging to a different document is not this document's result.\n  // Fall back to the cache for the current id, and to 'pending' otherwise, so\n  // the reader never sees one document's body under another's title.\n  if (doc && state.docId !== doc.id) {\n    const cached = set ? getCached(set, doc.id) : undefined\n    return cached ? { kind: 'ready', result: cached } : { kind: 'pending' }\n  }\n\n  return state.state\n}"
+  },
+  {
+    "type": "function",
+    "name": "cachedOrPending",
+    "file_path": "src/state/render.ts",
+    "start_line": 148,
+    "end_line": 151,
+    "content": "function cachedOrPending(set: DocumentSet, doc: MarkdownDoc): RenderState {\n  const cached = getCached(set, doc.id)\n  return cached ? { kind: 'ready', result: cached } : { kind: 'pending' }\n}"
+  },
+  {
+    "type": "type",
+    "name": "IdleHandle",
+    "file_path": "src/state/render.ts",
+    "start_line": 154,
+    "end_line": 154,
+    "content": "type IdleHandle = { readonly kind: 'idle'; readonly id: number } | { readonly kind: 'timeout'; readonly id: number }"
+  },
+  {
+    "type": "function",
+    "name": "requestIdleCallbackShim",
+    "file_path": "src/state/render.ts",
+    "start_line": 156,
+    "end_line": 164,
+    "content": "function requestIdleCallbackShim(fn: () => void): IdleHandle {\n  const w = window as Window & {\n    requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number\n  }\n  if (typeof w.requestIdleCallback === 'function') {\n    return { kind: 'idle', id: w.requestIdleCallback(fn, { timeout: 2000 }) }\n  }\n  return { kind: 'timeout', id: window.setTimeout(fn, 300) }\n}"
+  },
+  {
+    "type": "function",
+    "name": "cancelIdleCallbackShim",
+    "file_path": "src/state/render.ts",
+    "start_line": 166,
+    "end_line": 173,
+    "content": "function cancelIdleCallbackShim(handle: IdleHandle): void {\n  const w = window as Window & { cancelIdleCallback?: (id: number) => void }\n  if (handle.kind === 'idle' && typeof w.cancelIdleCallback === 'function') {\n    w.cancelIdleCallback(handle.id)\n  } else if (handle.kind === 'timeout') {\n    window.clearTimeout(handle.id)\n  }\n}"
+  },
+  {
+    "type": "type",
+    "name": "Phase",
+    "file_path": "src/state/store.ts",
+    "start_line": 9,
+    "end_line": 14,
+    "content": "export type Phase =\n  | { readonly kind: 'idle' }\n  | { readonly kind: 'reading'; readonly count: number }\n  | { readonly kind: 'building' }\n  | { readonly kind: 'ready' }\n  | { readonly kind: 'error'; readonly message: string; readonly code: string }"
+  },
+  {
+    "type": "interface",
+    "name": "ReaderState",
+    "file_path": "src/state/store.ts",
+    "start_line": 16,
+    "end_line": 26,
+    "content": "interface ReaderState {\n  readonly phase: Phase\n  readonly set: DocumentSet | null\n  /** id of the document currently open. */\n  readonly activeDocId: string | null\n\n  ingestDataTransfer(dt: DataTransfer): Promise<void>\n  ingestFileList(files: FileList): Promise<void>\n  openDoc(docId: string): void\n  reset(): void\n}"
+  },
+  {
+    "type": "const",
+    "name": "useReader",
+    "file_path": "src/state/store.ts",
+    "start_line": 28,
+    "end_line": 95,
+    "content": "export const useReader = create<ReaderState>((set, get) => {\n  /** Object URLs are owned by the set; discarding one without revoking them\n   *  leaks every image for the lifetime of the page. */\n  const disposeCurrent = () => {\n    const current = get().set\n    if (current) revokeAssets(current.assets)\n  }\n\n  const ingest = async (\n    collect: () => Promise<{ path: string; file: File }[]>,\n  ): Promise<void> => {\n    try {\n      set({ phase: { kind: 'reading', count: 0 } })\n      const walked = await collect()\n\n      set({ phase: { kind: 'building' } })\n      const { rootName, files } = stripCommonRoot(walked)\n      const built = await buildDocumentSet(files, { rootName })\n\n      disposeCurrent()\n      set({\n        set: built,\n        activeDocId: built.docs[0]?.id ?? null,\n        phase: { kind: 'ready' },\n      })\n    } catch (err) {\n      set({\n        phase: {\n          kind: 'error',\n          message:\n            err instanceof IngestError || err instanceof Error\n              ? err.message\n              : 'Something went wrong reading those files.',\n          code: err instanceof IngestError ? err.code : 'read-failed',\n        },\n      })\n    }\n  }\n\n  return {\n    phase: { kind: 'idle' },\n    set: null,\n    activeDocId: null,\n\n    ingestDataTransfer: (dt) =>\n      ingest(() =>\n        walkDataTransfer(dt, {\n          maxFiles: LIMITS.maxFiles,\n          onProgress: (count) => set({ phase: { kind: 'reading', count } }),\n        }),\n      ),\n\n    ingestFileList: (files) =>\n      ingest(async () =>\n        walkFileList(files, {\n          maxFiles: LIMITS.maxFiles,\n          onProgress: (count) => set({ phase: { kind: 'reading', count } }),\n        }),\n      ),\n\n    openDoc: (docId) => set({ activeDocId: docId }),\n\n    reset: () => {\n      disposeCurrent()\n      set({ phase: { kind: 'idle' }, set: null, activeDocId: null })\n    },\n  }\n})"
+  },
+  {
+    "type": "interface",
+    "name": "AssetRef",
+    "file_path": "src/types/domain.ts",
+    "start_line": 10,
+    "end_line": 19,
+    "content": "export interface AssetRef {\n  /** Normalised POSIX relative path, lowercased — the lookup key. */\n  readonly path: string\n  /** The path exactly as it appeared in the drop, for display and diagnostics. */\n  readonly originalPath: string\n  /** Object URL, valid for the lifetime of the session. */\n  readonly url: string\n  readonly mime: string\n  readonly bytes: number\n}"
+  },
+  {
+    "type": "interface",
+    "name": "Heading",
+    "file_path": "src/types/domain.ts",
+    "start_line": 21,
+    "end_line": 28,
+    "content": "export interface Heading {\n  /** Slug, unique within its document. */\n  readonly id: string\n  /** 1..6, after the repair pass has normalised the hierarchy. */\n  readonly depth: number\n  readonly text: string\n  readonly children: Heading[]\n}"
+  },
+  {
+    "type": "type",
+    "name": "RepairRule",
+    "file_path": "src/types/domain.ts",
+    "start_line": 30,
+    "end_line": 35,
+    "content": "export type RepairRule =\n  | 'heading-skip'\n  | 'duplicate-h1'\n  | 'list-nesting'\n  | 'mixed-markers'\n  | 'unbalanced-emphasis'"
+  },
+  {
+    "type": "interface",
+    "name": "RepairNote",
+    "file_path": "src/types/domain.ts",
+    "start_line": 44,
+    "end_line": 50,
+    "content": "export interface RepairNote {\n  readonly rule: RepairRule\n  readonly line: number | null\n  readonly before: string\n  readonly after: string\n  readonly detail: string\n}"
+  },
+  {
+    "type": "interface",
+    "name": "MarkdownDoc",
+    "file_path": "src/types/domain.ts",
+    "start_line": 52,
+    "end_line": 69,
+    "content": "export interface MarkdownDoc {\n  /** Stable hash of the relative path. */\n  readonly id: string\n  /** Normalised POSIX relative path from the drop root. */\n  readonly path: string\n  readonly dir: string\n  readonly filename: string\n  /** frontmatter.title, else the first H1, else a prettified filename. */\n  readonly title: string\n  readonly frontmatter: Readonly<Record<string, unknown>>\n  readonly raw: string\n  /** Explicit frontmatter `order`, when present. */\n  readonly order: number | null\n  /** Composite key computed by ordering.ts; sorting is a plain string compare. */\n  readonly sortKey: string\n  /** Per-file failure. A failed document never fails the whole set. */\n  readonly error: string | null\n}"
+  },
+  {
+    "type": "interface",
+    "name": "SkippedFile",
+    "file_path": "src/types/domain.ts",
+    "start_line": 71,
+    "end_line": 74,
+    "content": "export interface SkippedFile {\n  readonly path: string\n  readonly reason: string\n}"
+  },
+  {
+    "type": "interface",
+    "name": "DocumentSet",
+    "file_path": "src/types/domain.ts",
+    "start_line": 76,
+    "end_line": 86,
+    "content": "export interface DocumentSet {\n  readonly id: string\n  /** The dropped folder's name, or 'Documents' for loose files. */\n  readonly rootName: string\n  /** In resolved reading order. */\n  readonly docs: readonly MarkdownDoc[]\n  readonly assets: ReadonlyMap<string, AssetRef>\n  readonly skipped: readonly SkippedFile[]\n  readonly totalBytes: number\n  readonly createdAt: number\n}"
+  },
+  {
+    "type": "interface",
+    "name": "MermaidBlock",
+    "file_path": "src/types/domain.ts",
+    "start_line": 88,
+    "end_line": 93,
+    "content": "export interface MermaidBlock {\n  /** Content-hashed, so a re-render of unchanged source reuses the id and a\n   *  changed diagram never collides with the previous one's cached defs. */\n  readonly id: string\n  readonly code: string\n}"
+  },
+  {
+    "type": "interface",
+    "name": "RenderResult",
+    "file_path": "src/types/domain.ts",
+    "start_line": 95,
+    "end_line": 104,
+    "content": "export interface RenderResult {\n  readonly docId: string\n  /** Sanitised, then KaTeX- and Shiki-processed. Safe to inject. */\n  readonly html: string\n  readonly headings: readonly Heading[]\n  readonly repairs: readonly RepairNote[]\n  readonly mermaidBlocks: readonly MermaidBlock[]\n  readonly wordCount: number\n  readonly readingMinutes: number\n}"
+  },
+  {
+    "type": "const",
+    "name": "LIMITS",
+    "file_path": "src/types/domain.ts",
+    "start_line": 107,
+    "end_line": 113,
+    "content": "export const LIMITS = {\n  maxTotalBytes: 200 * 1024 * 1024,\n  maxFiles: 2000,\n  maxSingleFileBytes: 10 * 1024 * 1024,\n  pdfBodyLimitBytes: 20 * 1024 * 1024,\n  pdfRenderDeadlineMs: 30_000,\n} as const"
+  },
+  {
+    "type": "const",
+    "name": "MARKDOWN_EXTENSIONS",
+    "file_path": "src/types/domain.ts",
+    "start_line": 115,
+    "end_line": 115,
+    "content": "export const MARKDOWN_EXTENSIONS = ['.md', '.markdown', '.mdown', '.mkd'] as const"
+  },
+  {
+    "type": "const",
+    "name": "IMAGE_EXTENSIONS",
+    "file_path": "src/types/domain.ts",
+    "start_line": 117,
+    "end_line": 119,
+    "content": "export const IMAGE_EXTENSIONS = [\n  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.svg', '.bmp', '.ico',\n] as const"
+  },
+  {
+    "type": "class",
+    "name": "IngestError",
+    "file_path": "src/types/domain.ts",
+    "start_line": 121,
+    "end_line": 133,
+    "content": "export class IngestError extends Error {\n  constructor(\n    message: string,\n    readonly code:\n      | 'too-large'\n      | 'too-many-files'\n      | 'no-markdown'\n      | 'read-failed',\n  ) {\n    super(message)\n    this.name = 'IngestError'\n  }\n}"
+  },
+  {
+    "type": "const",
+    "name": "PORT",
+    "file_path": "server/index.ts",
+    "start_line": 16,
+    "end_line": 16,
+    "content": "const PORT = Number(process.env.PORT ?? 8080)"
+  },
+  {
+    "type": "const",
+    "name": "HOST",
+    "file_path": "server/index.ts",
+    "start_line": 17,
+    "end_line": 17,
+    "content": "const HOST = process.env.HOST ?? '0.0.0.0'"
+  },
+  {
+    "type": "const",
+    "name": "PDF_BODY_LIMIT",
+    "file_path": "server/index.ts",
+    "start_line": 20,
+    "end_line": 20,
+    "content": "const PDF_BODY_LIMIT = 20 * 1024 * 1024"
+  },
+  {
+    "type": "const",
+    "name": "here",
+    "file_path": "server/index.ts",
+    "start_line": 22,
+    "end_line": 22,
+    "content": "const here = dirname(fileURLToPath(import.meta.url))"
+  },
+  {
+    "type": "const",
+    "name": "staticRoot",
+    "file_path": "server/index.ts",
+    "start_line": 23,
+    "end_line": 23,
+    "content": "const staticRoot = process.env.STATIC_ROOT ?? join(here, '..', 'dist')"
+  },
+  {
+    "type": "const",
+    "name": "app",
+    "file_path": "server/index.ts",
+    "start_line": 25,
+    "end_line": 32,
+    "content": "const app = Fastify({\n  // Explicit, not the 1MiB default: an export carries every image inlined as\n  // a data URI. Unbounded is not an option - a print request is the one place\n  // a caller controls how much memory we allocate.\n  bodyLimit: PDF_BODY_LIMIT,\n  logger: { level: process.env.LOG_LEVEL ?? 'info' },\n  trustProxy: false,\n})"
+  },
+  {
+    "type": "method",
+    "name": "setHeaders",
+    "file_path": "server/index.ts",
+    "start_line": 37,
+    "end_line": 43,
+    "content": "  setHeaders(res, path) {\n    if (path.endsWith('index.html')) {\n      res.setHeader('cache-control', 'no-cache')\n    } else if (/\\.[0-9a-f]{8,}\\./i.test(path)) {\n      res.setHeader('cache-control', 'public, max-age=31536000, immutable')\n    }\n  },"
+  },
+  {
+    "type": "interface",
+    "name": "PdfBody",
+    "file_path": "server/index.ts",
+    "start_line": 60,
+    "end_line": 65,
+    "content": "interface PdfBody {\n  html?: unknown\n  title?: unknown\n  format?: unknown\n  landscape?: unknown\n}"
+  },
+  {
+    "type": "function",
+    "name": "asciiFilename",
+    "file_path": "server/index.ts",
+    "start_line": 110,
+    "end_line": 113,
+    "content": "const asciiFilename = (value: string): string => {\n  const cleaned = value.replace(/[^\\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80)\n  return cleaned === '' ? 'documents' : cleaned\n}"
+  },
+  {
+    "type": "function",
+    "name": "close",
+    "file_path": "server/index.ts",
+    "start_line": 123,
+    "end_line": 128,
+    "content": "const close = async (signal: string) => {\n  app.log.info({ signal }, 'shutting down')\n  await app.close()\n  await closeBrowser()\n  process.exit(0)\n}"
+  },
+  {
+    "type": "const",
+    "name": "RENDER_DEADLINE_MS",
+    "file_path": "server/pdf.ts",
+    "start_line": 30,
+    "end_line": 30,
+    "content": "const RENDER_DEADLINE_MS = 30_000"
+  },
+  {
+    "type": "const",
+    "name": "SETCONTENT_TIMEOUT_MS",
+    "file_path": "server/pdf.ts",
+    "start_line": 31,
+    "end_line": 31,
+    "content": "const SETCONTENT_TIMEOUT_MS = 20_000"
+  },
+  {
+    "type": "const",
+    "name": "PAGE_DEFAULT_TIMEOUT_MS",
+    "file_path": "server/pdf.ts",
+    "start_line": 33,
+    "end_line": 33,
+    "content": "const PAGE_DEFAULT_TIMEOUT_MS = 20_000"
+  },
+  {
+    "type": "const",
+    "name": "browserPromise",
+    "file_path": "server/pdf.ts",
+    "start_line": 36,
+    "end_line": 36,
+    "content": "let browserPromise: Promise<Browser> | null = null"
+  },
+  {
+    "type": "function",
+    "name": "launch",
+    "file_path": "server/pdf.ts",
+    "start_line": 38,
+    "end_line": 52,
+    "content": "async function launch(): Promise<Browser> {\n  return chromium.launch({\n    args: [\n      // Without this Chromium uses /dev/shm, which is small in a container.\n      '--disable-dev-shm-usage',\n      // No extensions, no first-run UI, no background networking.\n      '--no-first-run',\n      '--no-default-browser-check',\n      '--disable-extensions',\n      '--disable-background-networking',\n      '--disable-sync',\n      '--disable-default-apps',\n    ],\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "getBrowser",
+    "file_path": "server/pdf.ts",
+    "start_line": 54,
+    "end_line": 63,
+    "content": "export function getBrowser(): Promise<Browser> {\n  browserPromise ??= launch().then((browser) => {\n    // A crashed browser must not be handed out again.\n    browser.on('disconnected', () => {\n      browserPromise = null\n    })\n    return browser\n  })\n  return browserPromise\n}"
+  },
+  {
+    "type": "function",
+    "name": "closeBrowser",
+    "file_path": "server/pdf.ts",
+    "start_line": 65,
+    "end_line": 72,
+    "content": "export async function closeBrowser(): Promise<void> {\n  const pending = browserPromise\n  browserPromise = null\n  if (pending) {\n    const browser = await pending.catch(() => null)\n    await browser?.close().catch(() => undefined)\n  }\n}"
+  },
+  {
+    "type": "function",
+    "name": "browserHealthy",
+    "file_path": "server/pdf.ts",
+    "start_line": 74,
+    "end_line": 82,
+    "content": "export async function browserHealthy(): Promise<boolean> {\n  if (browserPromise === null) return false\n  try {\n    const browser = await browserPromise\n    return browser.isConnected()\n  } catch {\n    return false\n  }\n}"
+  },
+  {
+    "type": "const",
+    "name": "limit",
+    "file_path": "server/pdf.ts",
+    "start_line": 88,
+    "end_line": 88,
+    "content": "const limit = pLimit(Math.max(1, Math.min(4, cpus().length)))"
+  },
+  {
+    "type": "function",
+    "name": "queueDepth",
+    "file_path": "server/pdf.ts",
+    "start_line": 90,
+    "end_line": 93,
+    "content": "export const queueDepth = (): { active: number; pending: number } => ({\n  active: limit.activeCount,\n  pending: limit.pendingCount,\n})"
+  },
+  {
+    "type": "class",
+    "name": "BusyError",
+    "file_path": "server/pdf.ts",
+    "start_line": 96,
+    "end_line": 101,
+    "content": "export class BusyError extends Error {\n  constructor() {\n    super('The print service is busy.')\n    this.name = 'BusyError'\n  }\n}"
+  },
+  {
+    "type": "class",
+    "name": "RenderTimeoutError",
+    "file_path": "server/pdf.ts",
+    "start_line": 103,
+    "end_line": 108,
+    "content": "export class RenderTimeoutError extends Error {\n  constructor() {\n    super('Rendering took too long.')\n    this.name = 'RenderTimeoutError'\n  }\n}"
+  },
+  {
+    "type": "interface",
+    "name": "PdfRequest",
+    "file_path": "server/pdf.ts",
+    "start_line": 110,
+    "end_line": 115,
+    "content": "export interface PdfRequest {\n  readonly html: string\n  readonly format?: 'A4' | 'Letter'\n  readonly landscape?: boolean\n  readonly title?: string\n}"
+  },
+  {
+    "type": "const",
+    "name": "ALLOWED_SCHEMES",
+    "file_path": "server/pdf.ts",
+    "start_line": 118,
+    "end_line": 118,
+    "content": "const ALLOWED_SCHEMES = /^(?:data:|blob:|about:)/i"
+  },
+  {
+    "type": "function",
+    "name": "harden",
+    "file_path": "server/pdf.ts",
+    "start_line": 120,
+    "end_line": 132,
+    "content": "async function harden(context: BrowserContext): Promise<void> {\n  // Registered on the context, not the page, so it covers every frame.\n  await context.route('**/*', (route) => {\n    const url = route.request().url()\n    if (ALLOWED_SCHEMES.test(url)) {\n      void route.continue()\n      return\n    }\n    // Everything else: http(s) to any host, file://, ws://. A legitimate\n    // export has no remote references, so this only ever blocks an attack.\n    void route.abort('blockedbyclient')\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "renderPdf",
+    "file_path": "server/pdf.ts",
+    "start_line": 134,
+    "end_line": 198,
+    "content": "export async function renderPdf(request: PdfRequest): Promise<Buffer> {\n  // Reject rather than queue without bound.\n  if (limit.pendingCount > limit.concurrency * 4) throw new BusyError()\n\n  return limit(async () => {\n    const browser = await getBrowser()\n\n    const context = await browser.newContext({\n      // The single highest-value control. This endpoint prints HTML that has\n      // already been rendered, so script execution has no legitimate purpose\n      // and its absence removes an entire class of vector.\n      javaScriptEnabled: false,\n      // storageState is deliberately omitted rather than set to undefined: a\n      // fresh context starts with no cookies or storage anyway, and that is\n      // the isolation we want between untrusted documents.\n      bypassCSP: false,\n      // Deterministic output regardless of the host's locale or timezone.\n      locale: 'en-GB',\n      timezoneId: 'UTC',\n      colorScheme: 'light',\n      reducedMotion: 'reduce',\n      serviceWorkers: 'block',\n    })\n\n    try {\n      await harden(context)\n      context.setDefaultTimeout(PAGE_DEFAULT_TIMEOUT_MS)\n      const page = await context.newPage()\n\n      const work = (async () => {\n        await page.setContent(request.html, {\n          // Deliberately not 'networkidle': with every request aborted, the\n          // network never becomes idle in the way Playwright waits for, and\n          // the call would sit until it timed out on every single render.\n          waitUntil: 'load',\n          timeout: SETCONTENT_TIMEOUT_MS,\n        })\n\n        // Fonts are inlined as data URIs, but layout still needs them ready\n        // or the first page can be typeset with fallback metrics.\n        await page\n          .evaluate(() => document.fonts.ready.then(() => undefined))\n          .catch(() => undefined)\n\n        await page.emulateMedia({ media: 'print' })\n\n        return page.pdf({\n          format: request.format ?? 'A4',\n          landscape: request.landscape ?? false,\n          printBackground: true,\n          preferCSSPageSize: true,\n          displayHeaderFooter: true,\n          headerTemplate: headerTemplate(request.title ?? ''),\n          footerTemplate: FOOTER_TEMPLATE,\n          margin: { top: '22mm', right: '18mm', bottom: '20mm', left: '22mm' },\n        })\n      })()\n\n      return await withDeadline(work, RENDER_DEADLINE_MS)\n    } finally {\n      // Always, even on timeout: a leaked context is a leaked browser process.\n      await context.close().catch(() => undefined)\n    }\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "withDeadline",
+    "file_path": "server/pdf.ts",
+    "start_line": 200,
+    "end_line": 214,
+    "content": "function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {\n  return new Promise<T>((resolve, reject) => {\n    const timer = setTimeout(() => reject(new RenderTimeoutError()), ms)\n    promise.then(\n      (value) => {\n        clearTimeout(timer)\n        resolve(value)\n      },\n      (err: unknown) => {\n        clearTimeout(timer)\n        reject(err instanceof Error ? err : new Error(String(err)))\n      },\n    )\n  })\n}"
+  },
+  {
+    "type": "function",
+    "name": "escapeHtml",
+    "file_path": "server/pdf.ts",
+    "start_line": 217,
+    "end_line": 218,
+    "content": "const escapeHtml = (value: string): string =>\n  value.replace(/[&<>\"']/g, (c) => `&#${c.charCodeAt(0)};`)"
+  },
+  {
+    "type": "const",
+    "name": "HEAD_FOOT_STYLE",
+    "file_path": "server/pdf.ts",
+    "start_line": 220,
+    "end_line": 221,
+    "content": "const HEAD_FOOT_STYLE =\n  'font-family:Georgia,serif;font-size:8pt;color:#777;width:100%;padding:0 22mm;'"
+  },
+  {
+    "type": "function",
+    "name": "headerTemplate",
+    "file_path": "server/pdf.ts",
+    "start_line": 223,
+    "end_line": 226,
+    "content": "const headerTemplate = (title: string): string =>\n  `<div style=\"${HEAD_FOOT_STYLE}display:flex;justify-content:space-between;\">\n     <span>${escapeHtml(title).slice(0, 120)}</span>\n   </div>`"
+  },
+  {
+    "type": "const",
+    "name": "FOOTER_TEMPLATE",
+    "file_path": "server/pdf.ts",
+    "start_line": 228,
+    "end_line": 231,
+    "content": "const FOOTER_TEMPLATE =\n  `<div style=\"${HEAD_FOOT_STYLE}text-align:center;\">` +\n  '<span class=\"pageNumber\"></span> / <span class=\"totalPages\"></span>' +\n  '</div>'"
+  }
+]

@@ -2,7 +2,17 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist/', 'dist-server/', 'node_modules/', '.claude/', 'coverage/'] },
+  {
+    ignores: [
+      'dist/',
+      'dist-server/',
+      'node_modules/',
+      '.claude/',
+      'coverage/',
+      // Review-tooling scratch, not application source.
+      'code-review-comparison/',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
