@@ -95,7 +95,16 @@ export const sanitizeSchema: SanitizeSchema = {
     ...base.attributes,
 
     // Heading anchors, footnote targets and callout wrappers all need ids.
-    '*': [...inherited('*'), 'id', 'className'],
+    //
+    // `className` is deliberately NOT here. A bare 'className' on '*' is the
+    // same trap `inheritedExcept` documents for `src`: it matches every value,
+    // so it grants arbitrary attacker-supplied classes on every tag the
+    // upstream schema does not already narrow - 43 of the 56 permitted tags,
+    // including h1, h3-h6, em, strong, table, img, figure and details. That is
+    // enough to restyle or spoof content using the reader's own stylesheet.
+    // Classes are granted per tag below instead; the upstream schema already
+    // carries precise allowances for the GFM footnote and task-list markup.
+    '*': [...inherited('*'), 'id'],
 
     code: [...inherited('code'), classes(CODE_LANGUAGE_PATTERN, ...MATH_CLASSES)],
     pre: [...inherited('pre'), classes(CODE_LANGUAGE_PATTERN, 'mermaid')],
@@ -159,22 +168,33 @@ export const sanitizeSchema: SanitizeSchema = {
   clobber: ['name', 'id'],
 }
 
-/**
- * A second, stricter schema applied server-side before the print service
- * hands HTML to Chromium.
+/*
+ * There is deliberately no second, server-side schema here.
  *
- * The client already sanitised this content, but the PDF endpoint accepts
- * whatever a caller posts - it is not necessarily our own client. Re-running
- * the same class of filter server-side means a bug in the network-block or
- * JavaScript-disable layers is not the only thing standing between a hostile
- * payload and a browser.
+ * An earlier `printSchema` claimed to be "applied server-side before the print
+ * service hands HTML to Chromium". It was never imported by anything, and it
+ * could not have been: it extended `sanitizeSchema`, which by design forbids
+ * `style=`, `<svg>` and `<math>` - precisely the trusted output that KaTeX,
+ * Shiki and Mermaid generate downstream of the boundary. Running it over an
+ * export strips the maths, the highlighting and every inline style, cutting a
+ * representative document from 1297 to 499 bytes. A defence that cannot be
+ * switched on is worse than none, because the comment describing it reads like
+ * a control that exists.
+ *
+ * Re-sanitising after the generators is the same mistake the header of this
+ * file rejects: it would force an allowlist for `style`, `<svg>`, `<math>` and
+ * every KaTeX class, which is the large permissive surface the pipeline order
+ * exists to avoid.
+ *
+ * What actually constrains the print path, in `server/`:
+ *   - `javaScriptEnabled: false` on the browser context (`pdf.ts`), so script
+ *     in a posted payload never executes;
+ *   - `harden()` aborts every request whose URL is not `data:`, `blob:` or
+ *     `about:` (`pdf.ts`), so no subresource is fetched;
+ *   - `serviceWorkers: 'block'` (`pdf.ts`);
+ *   - a body limit on the endpoint (`index.ts`).
+ *
+ * If a server-side content filter is ever wanted, it needs its own schema
+ * built for post-boundary markup - not a re-use of the pre-boundary one - plus
+ * `hast-util-sanitize` and an HTML parser moved into runtime dependencies.
  */
-export const printSchema: SanitizeSchema = {
-  ...sanitizeSchema,
-  // The print context loads no subresources at all, so remote URLs have no
-  // legitimate purpose. Only inlined data and blob URLs remain.
-  protocols: {
-    href: ['http', 'https', 'mailto'],
-    src: ['data', 'blob'],
-  },
-}

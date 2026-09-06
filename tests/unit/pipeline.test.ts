@@ -163,6 +163,30 @@ describe('sanitization — the trust boundary (DoD 2.5)', () => {
     expect(html).not.toContain('onmouseover')
     expect(html).toContain('hover')
   })
+
+  // Regression: `'*': [..., 'className']` granted arbitrary attacker-supplied
+  // classes on every tag the upstream schema does not already narrow - 43 of
+  // the 56 permitted tags. Enough to restyle or spoof content using the
+  // reader's own stylesheet. Classes are granted per tag instead.
+  const classCarriers = [
+    ['h1', '<h1 class="evil-overlay">x</h1>'],
+    ['h3', '<h3 class="evil-overlay">x</h3>'],
+    ['em', '<em class="evil-overlay">x</em>'],
+    ['strong', '<strong class="evil-overlay">x</strong>'],
+    ['table', '<table class="evil-overlay"><tr><td>x</td></tr></table>'],
+    ['figure', '<figure class="evil-overlay">x</figure>'],
+    ['details', '<details class="evil-overlay"><summary>s</summary>x</details>'],
+    ['img', '<img src="a.png" class="evil-overlay">'],
+  ] as const
+
+  for (const [name, payload] of classCarriers) {
+    it(`strips an arbitrary class from raw <${name}>`, async () => {
+      const { html } = await render(`Before\n\n${payload}\n\nAfter\n`)
+      expect(html).not.toContain('evil-overlay')
+      expect(html).toContain('Before')
+      expect(html).toContain('After')
+    })
+  }
 })
 
 describe('trusted output survives the sanitizer (DoD 2.6)', () => {
@@ -185,6 +209,34 @@ describe('trusted output survives the sanitizer (DoD 2.6)', () => {
     expect(html).toContain('mermaid-figure')
     expect(mermaidBlocks).toHaveLength(1)
     expect(mermaidBlocks[0]?.code).toContain('graph LR')
+  })
+
+  // The counterpart to the arbitrary-class regression above: narrowing
+  // `className` must not cost the classes the markup legitimately needs.
+  it('keeps the GFM footnote classes the stylesheet targets', async () => {
+    const { html } = await render('text[^1]\n\n[^1]: note\n')
+    expect(html).toContain('footnotes')
+    expect(html).toContain('data-footnote-backref')
+  })
+
+  it('keeps the GFM task-list classes the stylesheet targets', async () => {
+    const { html } = await render('- [x] done\n- [ ] todo\n')
+    expect(html).toContain('contains-task-list')
+    expect(html).toContain('task-list-item')
+  })
+
+  it('keeps a fence language class through the sanitizer', async () => {
+    // A language Shiki does not highlight keeps its class in the output, which
+    // is the only place the surviving class is directly observable — for a
+    // highlighted fence Shiki replaces the node, and the two tests above cover
+    // that the class did its job upstream.
+    const { html } = await render('```notalanguage\nx\n```\n')
+    expect(html).toContain('language-notalanguage')
+  })
+
+  it('keeps callout classes on a real GFM alert', async () => {
+    const { html } = await render('> [!NOTE]\n> hello\n')
+    expect(html).toContain('markdown-alert')
   })
 })
 

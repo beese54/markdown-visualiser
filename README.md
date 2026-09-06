@@ -133,7 +133,7 @@ All verified by probe against the running container, not by inspection:
 ## Verifying
 
 ```bash
-npm test              # 121 unit tests
+npm test              # 133 unit tests
 npm run typecheck
 npm run lint
 npm run test:e2e      # 4 browser drives, needs the container running
