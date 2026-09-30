@@ -5,10 +5,6 @@ edition: ordered, cross-linked, and set on an archival paper surface built for
 reading rather than for scanning. Export it as a print-quality PDF or as a
 single self-contained HTML file.
 
-It exists for one narrow purpose — helping people read markdown files in a
-neater, more legible way than a raw editor or a utilitarian preview pane
-allows.
-
 > ### Design by Meng To
 >
 > **The entire visual design of this project comes from the work of
@@ -22,160 +18,95 @@ allows.
 > and go look at [his work](https://github.com/MengTo?tab=repositories) and
 > [Design+Code](https://designcode.io) directly.
 
-```bash
-./init.sh
-docker compose up --build     # → http://localhost:8080
-```
+## Purpose
 
----
+It exists for one narrow purpose — helping people read markdown files in a
+neater, more legible way than a raw editor or a utilitarian preview pane
+allows.
 
-## What it looks like
+- Understands a folder: nested directories, frontmatter ordering, numeric filename prefixes, `README`/`index` conventions, and relative links that become in-app navigation.
+- Renders GFM, `> [!NOTE]` callouts, KaTeX maths, Shiki-highlighted code, Mermaid diagrams and local images with a lightbox.
+- Repairs messy markdown for the rendering only, and lists every repair (line, before, after) in the document. The source file is never modified.
+- Exports a PDF with running heads and page numbers, or one portable HTML file that works offline.
 
-Drop a folder anywhere on the page. Nothing is uploaded.
+Drops are capped at 200 MB / 2000 files / 10 MB per file; PDF request bodies at
+20 MB. Not in scope: editing markdown, persistence between sessions,
+authentication, cloud sync, or live filesystem watching.
 
 ![The empty state: a cream paper panel on a dark shell, reading "Drop a folder of markdown."](docs/screenshots/dropzone.png)
 
-Documents are typeset as one continuous reading edition — callouts, Mermaid
-diagrams, highlighted code and KaTeX maths, with the index as navigation.
-
 ![A markdown document set as a book page: serif headings, a drop cap, a note callout and a flow diagram, with a contents index down the left](docs/screenshots/reader.png)
-
-Every repair is listed in the document, with the line, the text before and the
-text after. The source file is never modified — the adjustments apply to the
-rendering only.
 
 ![The repairs panel expanded, listing a duplicate title and a promoted heading with their line numbers and before/after text](docs/screenshots/repairs.png)
 
----
+## Technologies
 
-## What it does
+TypeScript (strict), React 19, Vite 7, Zustand, unified/remark/rehype, Shiki, KaTeX, Mermaid, Fastify 5, Playwright (Chromium), Vitest, Docker. Typography is Fraunces, Newsreader and IBM Plex Mono (SIL OFL), self-hosted, so the app makes zero third-party requests. See [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
 
-- **Understands a folder, not just a file.** Nested directories, frontmatter
-  ordering, numeric filename prefixes, `README`/`index` conventions, and
-  relative links between documents that become real in-app navigation.
-- **Renders the whole of markdown.** GFM tables, footnotes and task lists;
-  `> [!NOTE]` callouts; KaTeX maths; Shiki syntax highlighting; Mermaid
-  diagrams; local images with figure captions and a lightbox.
-- **Repairs messy markdown, and says so.** Five rules — skipped heading levels,
-  duplicate H1s, broken list nesting, mixed bullet markers and unbalanced
-  emphasis — are normalised for the rendering, never in the source file. Every
-  change is listed in the document with its line number and its before/after
-  text, because silently editing someone's writing is not acceptable behaviour
-  for a reader.
-- **Exports two ways.** A PDF with running heads and page numbers, or one
-  portable HTML file that opens correctly with the network disabled.
+## Architecture at a Glance
 
-## Architecture
-
-There is exactly one markdown pipeline, and it runs in the browser.
+There is exactly one markdown pipeline, and it runs in the browser. The server is a static host plus a stateless print service that receives already-rendered HTML.
 
 ```
-  ┌─ browser ───────────────────────────────────────────────┐
-  │  drop folder → ingest → DocumentSet → repair → render    │
-  │                                             ↓            │
-  │                                      paper reader UI     │
-  │                                             ↓            │
-  │                             inline all CSS + assets      │
-  └────────────────────────────────┬────────────────────────┘
-                                   │ POST rendered HTML
-                                   ↓
-  ┌─ container ─────────────────────────────────────────────┐
-  │  Fastify → Playwright Chromium → setContent() → PDF      │
-  │  (stateless print service, nothing persisted)            │
-  └─────────────────────────────────────────────────────────┘
+  browser:   drop folder → ingest → DocumentSet → repair → sanitise → render → reader
+                                                            ↓
+                                              inline all CSS + assets
+                                                            │ POST rendered HTML (PDF only)
+  container: Fastify → Playwright Chromium (JS off, network blocked) → PDF
 ```
 
-A server-side markdown pipeline would be a second implementation that silently
-drifts from the client one, and PDFs would stop matching what the reader saw.
-Posting the already-rendered HTML makes the PDF identical to the screen by
-construction, and keeps the server a small stateless service with no markdown
-dependencies at all.
+Trade-off: document content leaves the browser at PDF export time. It is held in memory for one request and never written to disk. The HTML export is entirely local.
 
-**Trade-off, stated plainly:** document content does leave the browser at PDF
-export time. It is held in memory for one request and never written to disk,
-but that moment is not purely local. The HTML export is entirely local.
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DESIGN.md](docs/DESIGN.md), [docs/SECURITY.md](docs/SECURITY.md).
 
-### The trust boundary
+## Prerequisites
 
-The plugin order in `src/pipeline/render.ts` is the load-bearing decision:
+- Node.js 20 or later (`package.json` `engines`; `init.sh` enforces it) and npm.
+- Docker, for the container and for the browser and security tests.
 
-```
-parse → frontmatter → gfm → math → repair → callouts
-  → remark-rehype {allowDangerousHtml} → rehype-raw
-  → rehype-sanitize          ←── TRUST BOUNDARY
-  → katex → shiki → mermaid → assets → stringify
-```
-
-`rehype-raw` turns embedded HTML into real elements, so the sanitizer runs
-immediately after it. Everything downstream is markup *we* generate from an
-already-clean tree, so it needs no whitelisting — putting the sanitizer last
-would instead force `style=`, `<svg>`, `<math>` and dozens of KaTeX classes to
-be permitted, which is precisely the surface an attacker wants.
-
-## Security
-
-The PDF endpoint renders caller-supplied HTML in a real browser — a known SSRF
-and resource-exhaustion class, and the app's only meaningful attack surface. It
-is contained rather than trusted, in layers, so no single control is
-load-bearing:
-
-| Control | Stops |
-|---|---|
-| `javaScriptEnabled: false` | script-driven fetch, exfiltration, infinite loops |
-| context-level default-deny routing (`data:`/`blob:`/`about:` only) | SSRF to internal hosts and cloud metadata, `file://` reads, and the CSS-only vectors (`@import`, `url()`, `<link>`) that need no JavaScript |
-| fresh `BrowserContext` per request | state carrying between untrusted documents |
-| `p-limit` + queue cap | unbounded browser spawning; sheds to 429 |
-| `bodyLimit`, `setContent` and render deadlines | oversized bodies and documents that never settle |
-
-All verified by probe against the running container, not by inspection:
-`npm run test:security` (11 checks).
-
-## Verifying
+## Local Development
 
 ```bash
-npm test              # 121 unit tests
+./init.sh                     # checks toolchain, npm ci, vendors design skills, typecheck, build, tests
+docker compose up --build     # → http://localhost:8080
+```
+
+For development without Docker: `npm run dev` (Vite) and `npm run dev:server` (`tsx watch server/index.ts`). Whether PDF export works from the Vite dev server without the container: uncertain — verify with developer.
+
+## Running Tests
+
+```bash
 npm run typecheck
 npm run lint
-npm run test:e2e      # 4 browser drives, needs the container running
-npm run test:security # adversarial probe of the PDF endpoint
+npm test -- --run
+npm run test:e2e       # browser drives; needs the container running
+npm run test:security  # adversarial probe of the PDF endpoint
 ```
 
-The browser drives run inside a sibling container sharing the app's network
-namespace, driving the real served bundle in Chromium:
+See [docs/TESTING.md](docs/TESTING.md).
 
-| Drive | Covers |
+## Deployment
+
+Docker two-stage build, run with `docker compose up --build -d`. Bound to `127.0.0.1:8080` because the service is unauthenticated. The application is stateless. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) and [docs/OPERATIONS.md](docs/OPERATIONS.md).
+
+## Documentation
+
+| Document | Contents |
 |---|---|
-| `drive.mjs` | ingest: walker, reading order, grouping, titles, skips |
-| `drive-reader.mjs` | navigation, keyboard, responsiveness, axe accessibility, reduced motion |
-| `drive-export.mjs` | both exports, re-opened with the network blocked |
-| `adversarial.mjs` | the security table above |
-
-## Project layout
-
-```
-src/
-  ingest/     folder walk, ordering, asset map, link resolution
-  pipeline/   unified chain, sanitize schema, repair, shiki, mermaid
-  reader/     paper shell, index, document view, diagrams, lightbox
-  export/     standalone HTML serialiser, client PDF call
-  styles/     tokens, paper surface, print
-server/       Fastify static host + hardened Playwright print service
-tests/        unit tests, fixtures, browser drives
-```
-
-## Design
-
-Every visual decision here traces back to [Meng To](https://github.com/MengTo).
-The archival-paper direction — dark shell around a warm parchment sheet, serif
-as the primary design driver, index-like navigation with active markers, drop
-caps and folio marks, layered elevation, the calm literary motion — comes from
-skills he published in [MengTo/Skills](https://github.com/MengTo/Skills) (MIT),
-vendored into `.claude/skills/mengto/` by `init.sh`. **[CREDITS.md](CREDITS.md)
-sets out which skill shaped which part.**
-
-Typography is Fraunces, Newsreader and IBM Plex Mono — all SIL OFL,
-self-hosted, so the app makes **zero third-party requests** (which is also what
-lets the HTML export work offline).
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Components and information flow |
+| [docs/DESIGN.md](docs/DESIGN.md) | Boundaries, conventions, error handling |
+| [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) | End-to-end workflows |
+| [docs/DATA_MODEL.md](docs/DATA_MODEL.md) | In-memory entities, limits, business rules |
+| [docs/API.md](docs/API.md) | The two HTTP endpoints |
+| [docs/SECURITY.md](docs/SECURITY.md) | Trust boundaries and controls |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Build, configuration, rollback |
+| [docs/TESTING.md](docs/TESTING.md) | Test strategy and gates |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | Monitoring and incidents |
+| [docs/MAINTENANCE.md](docs/MAINTENANCE.md) | Handover, debt, fragile areas |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Known problems |
+| [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md) | Critical dependencies |
+| [docs/adr/](docs/adr/) | Architecture decision records |
+| [CHANGELOG.md](CHANGELOG.md) | Changes |
 
 ## Licence
 
@@ -184,14 +115,4 @@ condition but a statement of fact: the look of this application is Meng To's
 work, and [CREDITS.md](CREDITS.md) records it in full. Bundled fonts are SIL
 OFL 1.1.
 
-## Limits and non-goals
-
-Drops are capped at 200 MB / 2000 files / 10 MB per file; PDF request bodies at
-20 MB. Not in scope: editing markdown, persistence between sessions,
-authentication, cloud sync, or live filesystem watching.
-
-## Known follow-up
-
-The runtime image is 3.63 GB because the official Playwright image ships
-Chromium, Firefox and WebKit and only Chromium is used. A `node:24-slim` base
-with `playwright install --with-deps chromium` should land near ~1.2 GB.
+<!-- sources: README.md (previous version), package.json, init.sh, docker-compose.yml, server/index.ts, src/types/domain.ts -->
